@@ -13,7 +13,7 @@ class AppSettings {
 
   factory AppSettings.fromMap(Map<String, dynamic>? map) {
     return AppSettings(
-      appStoreUrl: map?['appStoreUrl'] ?? '',
+      appStoreUrl: (map?['appStoreUrl'] ?? map?['storeUrl'] ?? '').toString(),
       shareMessage: (map?['shareMessage'] as String?)?.trim().isNotEmpty == true
           ? map!['shareMessage']
           : 'جرّب تطبيق BinSheikh!',

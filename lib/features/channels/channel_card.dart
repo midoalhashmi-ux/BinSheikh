@@ -13,6 +13,8 @@ class ChannelCard extends StatelessWidget {
         return Colors.redAccent;
       case 'upcoming':
         return Colors.amber;
+      case 'disabled':
+        return Colors.grey;
       default:
         return Colors.grey;
     }
@@ -24,6 +26,8 @@ class ChannelCard extends StatelessWidget {
         return 'مباشر الآن';
       case 'upcoming':
         return 'قريباً';
+      case 'disabled':
+        return 'معطّلة';
       default:
         return 'انتهى';
     }
@@ -37,7 +41,11 @@ class ChannelCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () => PlayerLauncher.openChannel(context, channel.id),
+        onTap: channel.status == 'disabled'
+            ? () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('هذه القناة متوقفة مؤقتاً.')),
+                )
+            : () => PlayerLauncher.openChannel(context, channel.id),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
