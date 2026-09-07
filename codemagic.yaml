@@ -1,6 +1,6 @@
 workflows:
   android-workflow:
-    name: بناء أندرويد - تطبيق البث الرياضي
+    name: BinSheilh
     max_build_duration: 60
     environment:
       flutter: stable
