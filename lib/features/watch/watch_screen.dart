@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -16,6 +18,10 @@ class _WatchScreenState extends State<WatchScreen> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _loading = true;
+  bool _isBuffering = false;
+  bool _bufferIndicatorVisible = false;
+  Timer? _bufferIndicatorTimer;
+  Duration _lastPosition = Duration.zero;
   String? _error;
 
   @override
@@ -25,14 +31,23 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _loadStream() async {
+    _bufferIndicatorTimer?.cancel();
+    _chewieController?.dispose();
+    _videoController?.removeListener(_videoListener);
+    _videoController?.dispose();
+    if (!mounted) return;
     setState(() {
       _loading = true;
+      _isBuffering = false;
+      _bufferIndicatorVisible = false;
+      _lastPosition = Duration.zero;
       _error = null;
     });
 
     final url =
         await SecureStreamService.getTemporaryStreamUrl(widget.channel.id);
 
+    if (!mounted) return;
     if (url == null) {
       setState(() {
         _loading = false;
@@ -42,9 +57,24 @@ class _WatchScreenState extends State<WatchScreen> {
     }
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
-    await controller.initialize();
+    try {
+      await controller.initialize().timeout(const Duration(seconds: 20));
+    } catch (_) {
+      await controller.dispose();
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'تعذر تهيئة مشغل الفيديو. تحقق من الاتصال وحاول مرة أخرى.';
+      });
+      return;
+    }
 
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     _videoController = controller;
+    controller.addListener(_videoListener);
     _chewieController = ChewieController(
       videoPlayerController: controller,
       autoPlay: true,
@@ -58,9 +88,34 @@ class _WatchScreenState extends State<WatchScreen> {
     setState(() => _loading = false);
   }
 
+  void _videoListener() {
+    final controller = _videoController;
+    if (!mounted || controller == null) return;
+    final value = controller.value;
+    if (value.hasError) return;
+    final positionAdvanced = value.isPlaying && value.position > _lastPosition;
+    _lastPosition = value.position;
+    final buffering = value.isBuffering && !positionAdvanced;
+    if (_isBuffering == buffering) return;
+    setState(() {
+      _isBuffering = buffering;
+      _bufferIndicatorVisible = buffering;
+    });
+    _bufferIndicatorTimer?.cancel();
+    if (buffering) {
+      _bufferIndicatorTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _bufferIndicatorVisible = false);
+      });
+    } else {
+      _bufferIndicatorTimer = null;
+    }
+  }
+
   @override
   void dispose() {
     _chewieController?.dispose();
+    _bufferIndicatorTimer?.cancel();
+    _videoController?.removeListener(_videoListener);
     _videoController?.dispose();
     super.dispose();
   }
@@ -128,7 +183,18 @@ class _WatchScreenState extends State<WatchScreen> {
       );
     }
     if (_chewieController != null) {
-      return Chewie(controller: _chewieController!);
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Chewie(controller: _chewieController!),
+          if (_isBuffering && _bufferIndicatorVisible)
+            const IgnorePointer(
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+        ],
+      );
     }
     return const SizedBox.shrink();
   }

@@ -111,6 +111,42 @@ class _ChannelsList extends StatelessWidget {
     return StreamBuilder<List<ChannelModel>>(
       stream: ContentService.watchChannelsForCategory(categoryId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_off, size: 42),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'تعذر تحميل القنوات.\nتحقق من اتصال الإنترنت وحاول مرة أخرى.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => ChannelsScreen(
+                          category: CategoryModel(
+                            id: categoryId,
+                            parentId: null,
+                            title: 'القنوات',
+                            iconUrl: null,
+                            order: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('إعادة المحاولة'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }

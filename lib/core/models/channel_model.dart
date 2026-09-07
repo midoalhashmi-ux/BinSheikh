@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ChannelModel {
   final String id;
   final String categoryId;
@@ -20,15 +22,21 @@ class ChannelModel {
   });
 
   factory ChannelModel.fromMap(String id, Map<String, dynamic> map) {
+    final rawStartTime = map['startTime'];
+    final parsedStartTime = rawStartTime is DateTime
+        ? rawStartTime
+        : rawStartTime is Timestamp
+            ? rawStartTime.toDate()
+            : rawStartTime is String
+                ? DateTime.tryParse(rawStartTime)
+                : null;
     return ChannelModel(
       id: id,
       categoryId: map['categoryId'] ?? '',
       title: map['title'] ?? '',
       subtitle: map['subtitle'] ?? '',
       status: map['status'] ?? 'upcoming',
-      startTime: map['startTime'] != null
-          ? DateTime.tryParse(map['startTime'])
-          : null,
+      startTime: parsedStartTime,
       logoUrl: map['logoUrl'],
       playerChannelKey: map['playerChannelKey'],
     );
