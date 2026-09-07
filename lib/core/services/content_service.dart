@@ -35,7 +35,8 @@ class ContentService {
         .snapshots()
         .map((snap) => snap.docs
             .map((d) => ChannelModel.fromMap(d.id, d.data()))
-            .toList());
+            .toList()
+          ..sort((a, b) => a.order.compareTo(b.order)));
   }
 
   /// يجلب بيانات قنوات محددة بمعرّفاتها (تُستخدم لشاشة المفضلة).
