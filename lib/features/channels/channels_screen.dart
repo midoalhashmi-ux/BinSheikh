@@ -11,7 +11,10 @@ class ChannelsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(category.title)),
+      appBar: AppBar(
+        title: Text(category.title),
+        centerTitle: true,
+      ),
       body: StreamBuilder<List<CategoryModel>>(
         stream: ContentService.watchChildCategories(category.id),
         builder: (context, snapshot) {
@@ -102,6 +105,8 @@ class ChannelsScreen extends StatelessWidget {
   }
 }
 
+String categoryContentType(String _) => 'channels';
+
 class _ChannelsList extends StatelessWidget {
   final String categoryId;
   const _ChannelsList({required this.categoryId});
@@ -135,6 +140,7 @@ class _ChannelsList extends StatelessWidget {
                             title: 'القنوات',
                             iconUrl: null,
                             order: 0,
+                            contentType: categoryContentType(categoryId),
                           ),
                         ),
                       ),

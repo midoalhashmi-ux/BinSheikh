@@ -4,6 +4,7 @@ class CategoryModel {
   final int order;
   final String? iconUrl;
   final String? parentId;
+  final String contentType;
 
   CategoryModel({
     required this.id,
@@ -11,6 +12,7 @@ class CategoryModel {
     required this.order,
     this.iconUrl,
     this.parentId,
+    this.contentType = 'channels',
   });
 
   factory CategoryModel.fromMap(String id, Map<String, dynamic> map) {
@@ -22,6 +24,7 @@ class CategoryModel {
           : int.tryParse('${map['order']}') ?? 0,
       iconUrl: map['iconUrl'],
       parentId: map['parentId'],
+      contentType: (map['contentType'] ?? 'channels').toString(),
     );
   }
 }
