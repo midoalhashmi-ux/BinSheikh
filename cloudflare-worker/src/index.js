@@ -708,7 +708,7 @@ function ristoImageFromTag(tag) {
   const attrs = String(tag || '');
   const names = ['data-src', 'data-lazy-src', 'data-original', 'src'];
   for (const name of names) {
-    const re = new RegExp('\\b' + name + '\\s*=\\s*["\\']([^"\\']+)["\\']', 'i');
+    const re = new RegExp('\\b' + name + '\\s*=\\s*["\']([^"\']+)["\']', 'i');
     const m = attrs.match(re);
     if (m) {
       const url = ristoAbsUrl(m[1]);
