@@ -666,6 +666,277 @@ async function handleGetPreMatchInfo(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// RistoAnime importer — server-side HTML reader used by the dashboard.
+// This route only reads public RistoAnime pages; it does not alter any
+// existing playback/API/HLS routes above.
+// ---------------------------------------------------------------------------
+const RISTO_ORIGIN = 'https://ristoanime.me';
+const RISTO_MAX_HTML = 2_000_000;
+const RISTO_MAX_RESULTS = 5000;
+
+function ristoDecodeHtml(value) {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+}
+
+function ristoText(value) {
+  return ristoDecodeHtml(String(value || '').replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ').trim();
+}
+
+function ristoAbsUrl(value) {
+  try {
+    const url = new URL(String(value || ''), RISTO_ORIGIN);
+    if (url.protocol !== 'https:' || url.hostname !== 'ristoanime.me') return '';
+    return url.href;
+  } catch (_) { return ''; }
+}
+
+function ristoWatchUrl(value) {
+  const url = ristoAbsUrl(value);
+  return url && /\/watch\/?(?:$|[?#])/.test(new URL(url).pathname + new URL(url).search) ? url : '';
+}
+
+function ristoImageFromTag(tag) {
+  const attrs = String(tag || '');
+  const names = ['data-src', 'data-lazy-src', 'data-original', 'src'];
+  for (const name of names) {
+    const re = new RegExp('\\b' + name + '\\s*=\\s*["\\']([^"\\']+)["\\']', 'i');
+    const m = attrs.match(re);
+    if (m) {
+      const url = ristoAbsUrl(m[1]);
+      if (url && !/\.svg(?:$|\?)/i.test(url)) return url;
+    }
+  }
+  const srcset = attrs.match(/\bsrcset\\s*=\\s*["']([^"']+)["']/i);
+  if (srcset) {
+    const candidate = srcset[1].split(',').map(x => x.trim().split(/\\s+/)[0]).find(Boolean);
+    const url = ristoAbsUrl(candidate);
+    if (url) return url;
+  }
+  return '';
+}
+
+function ristoExtractTitle(html, fallback = '') {
+  const og = String(html || '').match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i);
+  if (og) return ristoText(og[1]);
+  const title = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (title) return ristoText(title[1]).replace(/\s*[|–-]\s*RistoAnime.*$/i, '').trim();
+  const h = String(html || '').match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
+  return h ? ristoText(h[1]) : ristoText(fallback);
+}
+
+function ristoExtractThumbnail(html) {
+  const og = String(html || '').match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  if (og) {
+    const url = ristoAbsUrl(og[1]);
+    if (url) return url;
+  }
+  const imgs = String(html || '').match(/<img\b[^>]*>/gi) || [];
+  for (const tag of imgs) {
+    const url = ristoImageFromTag(tag);
+    if (url) return url;
+  }
+  return '';
+}
+
+function ristoLinks(html) {
+  const out = [];
+  const re = /<a\b([^>]*?)\bhref\s*=\s*["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(String(html || ''))) && out.length < RISTO_MAX_RESULTS) {
+    const url = ristoAbsUrl(m[2]);
+    if (!url) continue;
+    out.push({ url, text: ristoText(m[4]), attrs: `${m[1]} ${m[3]}` });
+  }
+  return out;
+}
+
+function ristoNextPage(html) {
+  const links = ristoLinks(html);
+  for (const link of links) {
+    if (/\bnext\b|التالي|الصفحة التالية|older posts/i.test(link.text) && !/\/watch\//.test(link.url)) return link.url;
+    if (/[?&]offset=\d+/i.test(link.url) && /التالي|next|older/i.test(link.text)) return link.url;
+  }
+  const candidates = links.filter(x => /[?&]offset=\d+/i.test(x.url));
+  return candidates.length ? candidates[candidates.length - 1].url : '';
+}
+
+function ristoLooksLikeEpisode(url, text = '') {
+  const p = decodeURIComponent(new URL(url).pathname).toLowerCase();
+  return !/\/series\//.test(p) && (/الحلقة|episode|ep[-_ ]?\d+|\b\d+\s*(?:مترجمة|مدبلجة)/i.test(text) || /الحلقة|episode|ep[-_]?(?:\d+)/i.test(p));
+}
+
+function ristoLooksLikeSeason(url, text = '') {
+  return /\/series\//.test(url) && /الموسم|season/i.test(text + ' ' + url);
+}
+
+function ristoEpisodeNumber(text, url = '') {
+  const s = decodeURIComponent(`${text} ${url}`);
+  const patterns = [
+    /(?:الحلقة|episode|ep|الحلقه)\s*[-#:：]?\s*(\d+(?:\.\d+)?)/i,
+    /[-_ ](\d{1,4})(?:[-_ ]|$)/,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+function ristoBilingualTitle(title, url = '') {
+  const raw = ristoText(title);
+  const s = `${raw} ${decodeURIComponent(url)}`.toLowerCase();
+  const known = [
+    [/one[- ]piece|وان بيس|ون بيس/, 'ون بيس - One Piece'],
+    [/naruto shippuden|ناروتو شيبودن/, 'ناروتو شيبودن - Naruto Shippuden'],
+    [/\bnaruto\b|ناروتو/, 'ناروتو - Naruto'],
+    [/hunter[ -]?x[ -]?hunter|هانتر|هنتر/, 'القناص - Hunter x Hunter'],
+    [/detective[ -]?conan|المحقق كونان|كونان/, 'المحقق كونان - Detective Conan'],
+    [/jujutsu[ -]?kaisen|جوجوتسو كايسن/, 'جوجوتسو كايسن - Jujutsu Kaisen'],
+    [/kimetsu[ -]?no[ -]?yaiba|demon[ -]?slayer|قاتل الشياطين|قاتل الشيطانين/, 'قاتل الشياطين - Demon Slayer'],
+    [/attack[ -]?on[ -]?titan|هجوم العمالقة/, 'هجوم العمالقة - Attack on Titan'],
+    [/\bbleach\b|بليتش/, 'بليتش - Bleach'],
+  ];
+  for (const [re, value] of known) if (re.test(s)) return value;
+  if (/\s[-–|]\s/.test(raw) && /[A-Za-z]/.test(raw) && /[\u0600-\u06ff]/.test(raw)) return raw.replace(/\s+/g, ' ').trim();
+  const english = raw.match(/[A-Za-z][A-Za-z0-9 '&:.-]{2,}/g);
+  const arabic = raw.match(/[\u0600-\u06ff][\u0600-\u06ff0-\u06ff\s'’-]{2,}/g);
+  if (arabic && english) return `${arabic[0].trim()} - ${english.join(' ').trim()}`;
+  return raw || 'أنمي بلا اسم';
+}
+
+async function ristoFetchHtml(url) {
+  const safe = ristoAbsUrl(url);
+  if (!safe) throw new Error('رابط RistoAnime غير صالح.');
+  const response = await fetch(safe, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; AHMED-dashboard Risto importer)',
+      'Accept': 'text/html,application/xhtml+xml',
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) throw new Error(`RistoAnime HTTP ${response.status}`);
+  const text = await response.text();
+  if (text.length > RISTO_MAX_HTML) return text.slice(0, RISTO_MAX_HTML);
+  return text;
+}
+
+function ristoParseCatalog(html) {
+  const result = [];
+  const seen = new Set();
+  for (const link of ristoLinks(html)) {
+    if (!/\/series\//.test(new URL(link.url).pathname)) continue;
+    if (seen.has(link.url)) continue;
+    seen.add(link.url);
+    const title = link.text || ristoExtractTitle(html, 'أنمي بلا اسم');
+    const thumb = ristoExtractThumbnail(html);
+    result.push({ url: link.url, title: ristoBilingualTitle(title, link.url), thumbnail: thumb || null });
+    if (result.length >= RISTO_MAX_RESULTS) break;
+  }
+  return result;
+}
+
+function ristoParseSeries(html, fallbackTitle = '', fallbackThumbnail = '') {
+  const links = ristoLinks(html);
+  const episodes = [];
+  const seasons = [];
+  const seenEpisodes = new Set();
+  const seenSeasons = new Set();
+  for (const link of links) {
+    if (ristoWatchUrl(link.url)) continue;
+    if (ristoLooksLikeSeason(link.url, link.text)) {
+      if (!seenSeasons.has(link.url)) {
+        seenSeasons.add(link.url);
+        seasons.push({ url: link.url, title: ristoBilingualTitle(link.text || decodeURIComponent(new URL(link.url).pathname), link.url), episodes: [] });
+      }
+      continue;
+    }
+    if (!ristoLooksLikeEpisode(link.url, link.text)) continue;
+    if (seenEpisodes.has(link.url)) continue;
+    seenEpisodes.add(link.url);
+    episodes.push({
+      url: link.url,
+      watchUrl: ristoWatchUrl(link.url) || '',
+      title: ristoBilingualTitle(link.text || decodeURIComponent(new URL(link.url).pathname), link.url),
+      episodeNumber: ristoEpisodeNumber(link.text, link.url),
+      thumbnail: null,
+    });
+  }
+  return {
+    title: ristoBilingualTitle(ristoExtractTitle(html, fallbackTitle), ''),
+    thumbnail: ristoExtractThumbnail(html) || fallbackThumbnail || null,
+    episodes,
+    seasons,
+    nextPageUrl: ristoNextPage(html) || '',
+  };
+}
+
+function ristoParseWatchFromHtml(html) {
+  const links = ristoLinks(html);
+  for (const link of links) {
+    const watch = ristoWatchUrl(link.url);
+    if (watch) return watch;
+  }
+  const raw = String(html || '').match(/https:\/\/ristoanime\.me\/[^"'<>\\s]+\/watch\//i);
+  return raw ? ristoAbsUrl(raw[0]) : '';
+}
+
+async function handleRistoAnimeImport(request, env) {
+  const adminKey = request.headers.get('x-admin-key');
+  if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
+    return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
+  }
+  let body;
+  try { body = await request.json(); } catch (_) { return json({ error: 'invalid-argument', message: 'body غير صالح.' }, 400); }
+  const action = body && body.action;
+  try {
+    if (action === 'catalog') {
+      const url = ristoAbsUrl(body.url || `${RISTO_ORIGIN}/series/`);
+      const html = await ristoFetchHtml(url);
+      const parsed = ristoParseCatalog(html);
+      return json({ ok: true, series: parsed, nextPageUrl: ristoNextPage(html) || null });
+    }
+    if (action === 'series') {
+      const url = ristoAbsUrl(body.url);
+      if (!url) return json({ error: 'invalid-argument', message: 'رابط السلسلة مطلوب.' }, 400);
+      const html = await ristoFetchHtml(url);
+      const parsed = ristoParseSeries(html, body.fallbackTitle || '', body.fallbackThumbnail || '');
+      return json({ ok: true, ...parsed });
+    }
+    if (action === 'resolveEpisodes') {
+      const urls = Array.isArray(body.urls) ? body.urls.slice(0, 40) : [];
+      const episodes = [];
+      for (const originalUrl of urls) {
+        const safe = ristoAbsUrl(originalUrl);
+        if (!safe) continue;
+        const html = await ristoFetchHtml(safe);
+        const watchUrl = ristoParseWatchFromHtml(html);
+        if (!watchUrl) continue;
+        episodes.push({
+          originalUrl: safe,
+          watchUrl,
+          title: ristoBilingualTitle(ristoExtractTitle(html, ''), safe),
+          episodeNumber: ristoEpisodeNumber(ristoExtractTitle(html, ''), safe),
+          thumbnail: ristoExtractThumbnail(html) || body.fallbackThumbnail || null,
+        });
+      }
+      return json({ ok: true, episodes });
+    }
+    return json({ error: 'invalid-argument', message: 'إجراء RistoAnime غير معروف.' }, 400);
+  } catch (error) {
+    return json({ error: 'upstream-error', message: String(error && error.message || error) }, 502);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // التوجيه (Routing)
 // ---------------------------------------------------------------------------
 export default {
@@ -690,6 +961,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/getPreMatchInfo') {
       return handleGetPreMatchInfo(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/ristoAnime/import') {
+      return handleRistoAnimeImport(request, env);
     }
 
     const hlsMatch = request.method === 'GET' && url.pathname.match(/^\/hls\/([^/]+)\/(.+)$/);
