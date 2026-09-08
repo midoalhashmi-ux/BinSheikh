@@ -9,6 +9,7 @@ class ChannelModel {
   final DateTime? startTime;
   final String? logoUrl;
   final String? playerChannelKey;
+  final int order;
 
   ChannelModel({
     required this.id,
@@ -19,6 +20,7 @@ class ChannelModel {
     this.startTime,
     this.logoUrl,
     this.playerChannelKey,
+    this.order = 0,
   });
 
   factory ChannelModel.fromMap(String id, Map<String, dynamic> map) {
@@ -39,6 +41,7 @@ class ChannelModel {
       startTime: parsedStartTime,
       logoUrl: map['logoUrl'],
       playerChannelKey: map['playerChannelKey'],
+      order: (map['order'] as num?)?.toInt() ?? 0,
     );
   }
 }
