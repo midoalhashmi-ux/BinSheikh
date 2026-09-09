@@ -18,7 +18,16 @@ class MediaHomeTab extends StatelessWidget {
       stream: ContentService.watchRootCategories(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(child: Text('تعذر تحميل المحتوى. تحقق من اتصال الإنترنت.'));
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wifi_off_rounded, size: 42, color: Colors.white38),
+                SizedBox(height: 10),
+                Text('تعذر تحميل المحتوى. تحقق من اتصال الإنترنت.'),
+              ],
+            ),
+          );
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final categories = snapshot.data!;
@@ -63,7 +72,16 @@ class MediaCategoriesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(type.title)),
       body: categories.isEmpty
-          ? Center(child: Text('لا توجد أقسام في ${type.title} حالياً'))
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(type.icon, size: 42, color: Colors.white38),
+                  const SizedBox(height: 10),
+                  Text('لا توجد أقسام في ${type.title} حالياً'),
+                ],
+              ),
+            )
           : GridView.builder(
               padding: const EdgeInsets.all(14),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -93,11 +111,22 @@ class MediaCategoriesScreen extends StatelessWidget {
                           alignment: Alignment.bottomCenter,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            color: Colors.black54,
+                            padding: const EdgeInsets.fromLTRB(10, 22, 10, 12),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Colors.black87],
+                              ),
+                            ),
                             child: Text(category.title,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ],
@@ -110,7 +139,7 @@ class MediaCategoriesScreen extends StatelessWidget {
   }
 
   Widget _fallback(BuildContext context) => Container(
-    color: Theme.of(context).colorScheme.primary.withOpacity(.16),
+    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.16),
     child: Icon(type.icon, size: 52, color: Theme.of(context).colorScheme.primary),
   );
 }
@@ -135,7 +164,7 @@ class _MediaCard extends StatelessWidget {
               Container(
                 width: 62, height: 62,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(.12),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(type.icon, size: 32, color: theme.colorScheme.primary),

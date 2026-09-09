@@ -134,7 +134,7 @@ class _WatchScreenState extends State<WatchScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -142,10 +142,10 @@ class _WatchScreenState extends State<WatchScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                        ?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(widget.channel.subtitle,
-                    style: const TextStyle(color: Colors.grey)),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
               ],
             ),
           ),
@@ -163,19 +163,20 @@ class _WatchScreenState extends State<WatchScreen> {
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline, color: Colors.white70, size: 40),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(_error!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: _loadStream,
-                child: const Text('إعادة المحاولة'),
+                icon: const Icon(Icons.refresh),
+                label: const Text('إعادة المحاولة'),
               ),
             ],
           ),
