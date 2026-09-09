@@ -666,15 +666,17 @@ async function handleGetPreMatchInfo(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// RistoAnime importer — server-side HTML reader used by the dashboard.
-// This route only reads public RistoAnime pages; it does not alter any
-// existing playback/API/HLS routes above.
+// Site importer — generic server-side HTML reader used by the dashboard's
+// "استيراد تلقائي من رابط موقع" feature. The admin pastes a catalog-page URL
+// from ANY site (not one hardcoded domain); this route reads that public
+// page and its own linked pages only. It does not alter any existing
+// playback/API/HLS routes above.
 // ---------------------------------------------------------------------------
-const RISTO_ORIGIN = 'https://ristoanime.me';
-const RISTO_MAX_HTML = 2_000_000;
-const RISTO_MAX_RESULTS = 5000;
+const SITE_MAX_HTML = 2_000_000;
+const SITE_MAX_RESULTS = 5000;
+const SITE_JUNK_PATH = /\/(wp-content|wp-json|wp-admin|wp-login|feed|tag|category|page\/\d+|author|comments?|cart|checkout|login|register|contact|about|privacy|terms|sitemap|rss|search)(\/|$|\?)/i;
 
-function ristoDecodeHtml(value) {
+function siteDecodeHtml(value) {
   return String(value || '')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -686,99 +688,178 @@ function ristoDecodeHtml(value) {
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
 }
 
-function ristoText(value) {
-  return ristoDecodeHtml(String(value || '').replace(/<[^>]*>/g, ' '))
+function siteText(value) {
+  return siteDecodeHtml(String(value || '').replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ').trim();
 }
 
-function ristoAbsUrl(value) {
+// Basic SSRF guard: this endpoint is admin-key gated, but we still refuse to
+// let the worker fetch internal/loopback/link-local addresses on the admin's
+// behalf.
+function siteIsPrivateHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  if (!h || h === 'localhost' || h.endsWith('.local')) return true;
+  if (/^127\.|^0\.|^10\.|^169\.254\.|^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true;
+  if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  return false;
+}
+
+function siteAbsUrl(value, base) {
   try {
-    const url = new URL(String(value || ''), RISTO_ORIGIN);
-    if (url.protocol !== 'https:' || url.hostname !== 'ristoanime.me') return '';
+    const url = new URL(String(value || ''), base);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    if (siteIsPrivateHost(url.hostname)) return '';
+    url.hash = '';
     return url.href;
   } catch (_) { return ''; }
 }
 
-function ristoWatchUrl(value) {
-  const url = ristoAbsUrl(value);
-  return url && /\/watch\/?(?:$|[?#])/.test(new URL(url).pathname + new URL(url).search) ? url : '';
+function siteSameOrigin(url, origin) {
+  try { return new URL(url).origin === origin; } catch (_) { return false; }
 }
 
-function ristoImageFromTag(tag) {
+function siteImageFromTag(tag, base) {
   const attrs = String(tag || '');
   const names = ['data-src', 'data-lazy-src', 'data-original', 'src'];
   for (const name of names) {
     const re = new RegExp('\\b' + name + '\\s*=\\s*["\']([^"\']+)["\']', 'i');
     const m = attrs.match(re);
     if (m) {
-      const url = ristoAbsUrl(m[1]);
+      const url = siteAbsUrl(m[1], base);
       if (url && !/\.svg(?:$|\?)/i.test(url)) return url;
     }
   }
-  const srcset = attrs.match(/\bsrcset\\s*=\\s*["']([^"']+)["']/i);
+  const srcset = attrs.match(/\bsrcset\s*=\s*["']([^"']+)["']/i);
   if (srcset) {
-    const candidate = srcset[1].split(',').map(x => x.trim().split(/\\s+/)[0]).find(Boolean);
-    const url = ristoAbsUrl(candidate);
+    const candidate = srcset[1].split(',').map(x => x.trim().split(/\s+/)[0]).find(Boolean);
+    const url = siteAbsUrl(candidate, base);
     if (url) return url;
   }
   return '';
 }
 
-function ristoExtractTitle(html, fallback = '') {
-  const og = String(html || '').match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i);
-  if (og) return ristoText(og[1]);
-  const title = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  if (title) return ristoText(title[1]).replace(/\s*[|–-]\s*RistoAnime.*$/i, '').trim();
-  const h = String(html || '').match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i);
-  return h ? ristoText(h[1]) : ristoText(fallback);
-}
-
-function ristoExtractThumbnail(html) {
-  const og = String(html || '').match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-  if (og) {
-    const url = ristoAbsUrl(og[1]);
-    if (url) return url;
-  }
+// Scans an arbitrary HTML fragment (e.g. a card/anchor's inner HTML) for a
+// poster image, trying <img> tags first and then a CSS background-image —
+// many Arabic streaming/anime WordPress themes render the poster as
+// `<div class="poster" style="background-image:url(...)"></div>` with no
+// <img> tag at all, which a naive <img>-only scan would miss entirely.
+function siteImageFrom(html, base) {
   const imgs = String(html || '').match(/<img\b[^>]*>/gi) || [];
   for (const tag of imgs) {
-    const url = ristoImageFromTag(tag);
+    const url = siteImageFromTag(tag, base);
+    if (url) return url;
+  }
+  const bg = String(html || '').match(/background(?:-image)?\s*:[^;"']*url\(\s*['"]?([^'")]+)['"]?\s*\)/i);
+  if (bg) {
+    const url = siteAbsUrl(bg[1], base);
     if (url) return url;
   }
   return '';
 }
 
-function ristoLinks(html) {
+function siteExtractTitle(html, fallback = '') {
+  const og = String(html || '').match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i);
+  if (og) return siteText(og[1]);
+  const h = String(html || '').match(/<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/i);
+  if (h) return siteText(h[1]);
+  const title = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (title) {
+    const raw = siteText(title[1]);
+    const parts = raw.split(/\s*[|–-]\s*/);
+    if (parts.length > 1 && parts[parts.length - 1].split(' ').length <= 4) {
+      const trimmed = parts.slice(0, -1).join(' - ').trim();
+      if (trimmed) return trimmed;
+    }
+    return raw;
+  }
+  return siteText(fallback);
+}
+
+// Looks for a per-item thumbnail inside the anchor tag's own inner HTML first
+// (the usual case for a catalog grid: <a><img src="..."></a>), and only
+// falls back to the page-wide og:image when nothing is found there — using
+// the page-wide image for every catalog item was a real bug in the previous
+// RistoAnime-only version (every show got the same thumbnail).
+function siteExtractThumbnail(html, base) {
+  const og = String(html || '').match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  if (og) {
+    const url = siteAbsUrl(og[1], base);
+    if (url) return url;
+  }
+  return siteImageFrom(html, base);
+}
+
+// A catalog/series card usually wraps unrelated badges (genre, quality,
+// rating) inside the same <a> as the real title — taking the whole anchor's
+// text mixes all of that together. A heading tag inside the card is almost
+// always the real title, so prefer it; fall back to an image alt text, then
+// to the full stripped text only as a last resort.
+function siteLinkTitle(innerHtml, fallbackText) {
+  const h = String(innerHtml || '').match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  if (h) { const t = siteText(h[1]); if (t) return t; }
+  const alt = String(innerHtml || '').match(/\balt\s*=\s*["']([^"']+)["']/i);
+  if (alt) { const t = siteText(alt[1]); if (t) return t; }
+  return siteText(fallbackText);
+}
+
+// Generic words that appear in almost every season/episode link on these
+// sites and so carry no identifying signal (both languages, since sites mix
+// Arabic and English/transliterated titles freely).
+const SITE_STOPWORDS = new Set([
+  'season', 'episode', 'online', 'translated', 'sub', 'dub', 'anime', 'series', 'watch', 'movie',
+  'الموسم', 'الحلقة', 'الحلقه', 'مترجم', 'مترجمة', 'مترجمه', 'اون', 'لاين', 'اونلاين', 'انمي', 'انمى',
+  'مشاهدة', 'تحميل', 'حلقة', 'حلقه', 'جميع', 'حلقات', 'مسلسل', 'مسلسلات', 'فيلم', 'افلام',
+]);
+
+function siteSignificantTokens(text) {
+  const raw = String(text || '').toLowerCase();
+  const tokens = raw.match(/[a-z0-9]+|[؀-ۿ]+/g) || [];
+  return tokens.filter(t => t.length >= 3 && !SITE_STOPWORDS.has(t));
+}
+
+// A season/episode candidate must share at least one identifying word with
+// the show it supposedly belongs to. Without this, a sidebar "latest
+// episodes across the site" widget — common on these WordPress themes and
+// present on nearly every page — gets misread as this show's own seasons,
+// mixing in unrelated shows. If we have no tokens to compare against, stay
+// permissive rather than silently discarding everything.
+function siteBelongsToShow(candidateText, candidateUrl, showTokens) {
+  if (!showTokens.length) return true;
+  const tokens = siteSignificantTokens(`${candidateText} ${decodeURIComponent(candidateUrl)}`);
+  return tokens.some(t => showTokens.includes(t));
+}
+
+function siteLinks(html, base) {
   const out = [];
   const re = /<a\b([^>]*?)\bhref\s*=\s*["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi;
   let m;
-  while ((m = re.exec(String(html || ''))) && out.length < RISTO_MAX_RESULTS) {
-    const url = ristoAbsUrl(m[2]);
+  while ((m = re.exec(String(html || ''))) && out.length < SITE_MAX_RESULTS) {
+    const url = siteAbsUrl(m[2], base);
     if (!url) continue;
-    out.push({ url, text: ristoText(m[4]), attrs: `${m[1]} ${m[3]}` });
+    out.push({ url, text: siteText(m[4]), html: m[4], attrs: `${m[1]} ${m[3]}` });
   }
   return out;
 }
 
-function ristoNextPage(html) {
-  const links = ristoLinks(html);
+function siteNextPage(links) {
   for (const link of links) {
-    if (/\bnext\b|التالي|الصفحة التالية|older posts/i.test(link.text) && !/\/watch\//.test(link.url)) return link.url;
-    if (/[?&]offset=\d+/i.test(link.url) && /التالي|next|older/i.test(link.text)) return link.url;
+    if (/\bnext\b|التالي|الصفحة التالية|older posts/i.test(link.text)) return link.url;
   }
-  const candidates = links.filter(x => /[?&]offset=\d+/i.test(x.url));
+  const candidates = links.filter(x => /[?&](offset|page)=\d+/i.test(x.url));
   return candidates.length ? candidates[candidates.length - 1].url : '';
 }
 
-function ristoLooksLikeEpisode(url, text = '') {
-  const p = decodeURIComponent(new URL(url).pathname).toLowerCase();
-  return !/\/series\//.test(p) && (/الحلقة|episode|ep[-_ ]?\d+|\b\d+\s*(?:مترجمة|مدبلجة)/i.test(text) || /الحلقة|episode|ep[-_]?(?:\d+)/i.test(p));
+function siteLooksLikeEpisode(text, url) {
+  const s = `${text} ${decodeURIComponent(url)}`;
+  return /الحلقة|الحلقه|episode|\bep[-_ ]?\d+/i.test(s);
 }
 
-function ristoLooksLikeSeason(url, text = '') {
-  return /\/series\//.test(url) && /الموسم|season/i.test(text + ' ' + url);
+function siteLooksLikeSeason(text, url) {
+  return /الموسم|season/i.test(`${text} ${decodeURIComponent(url)}`);
 }
 
-function ristoEpisodeNumber(text, url = '') {
+function siteEpisodeNumber(text, url = '') {
   const s = decodeURIComponent(`${text} ${url}`);
   const patterns = [
     /(?:الحلقة|episode|ep|الحلقه)\s*[-#:：]?\s*(\d+(?:\.\d+)?)/i,
@@ -791,105 +872,144 @@ function ristoEpisodeNumber(text, url = '') {
   return null;
 }
 
-function ristoBilingualTitle(title, url = '') {
-  const raw = ristoText(title);
-  const s = `${raw} ${decodeURIComponent(url)}`.toLowerCase();
-  const known = [
-    [/one[- ]piece|وان بيس|ون بيس/, 'ون بيس - One Piece'],
-    [/naruto shippuden|ناروتو شيبودن/, 'ناروتو شيبودن - Naruto Shippuden'],
-    [/\bnaruto\b|ناروتو/, 'ناروتو - Naruto'],
-    [/hunter[ -]?x[ -]?hunter|هانتر|هنتر/, 'القناص - Hunter x Hunter'],
-    [/detective[ -]?conan|المحقق كونان|كونان/, 'المحقق كونان - Detective Conan'],
-    [/jujutsu[ -]?kaisen|جوجوتسو كايسن/, 'جوجوتسو كايسن - Jujutsu Kaisen'],
-    [/kimetsu[ -]?no[ -]?yaiba|demon[ -]?slayer|قاتل الشياطين|قاتل الشيطانين/, 'قاتل الشياطين - Demon Slayer'],
-    [/attack[ -]?on[ -]?titan|هجوم العمالقة/, 'هجوم العمالقة - Attack on Titan'],
-    [/\bbleach\b|بليتش/, 'بليتش - Bleach'],
-  ];
-  for (const [re, value] of known) if (re.test(s)) return value;
-  if (/\s[-–|]\s/.test(raw) && /[A-Za-z]/.test(raw) && /[\u0600-\u06ff]/.test(raw)) return raw.replace(/\s+/g, ' ').trim();
-  const english = raw.match(/[A-Za-z][A-Za-z0-9 '&:.-]{2,}/g);
-  const arabic = raw.match(/[\u0600-\u06ff][\u0600-\u06ff0-\u06ff\s'’-]{2,}/g);
-  if (arabic && english) return `${arabic[0].trim()} - ${english.join(' ').trim()}`;
-  return raw || 'أنمي بلا اسم';
+// Fallback for sites that list episodes without ever using the word
+// "episode"/"الحلقة" — e.g. a row of plain numbered links. Groups links by
+// their URL with the trailing number stripped and picks the largest group.
+function siteDetectNumberedSeries(links, pageUrl) {
+  const groups = new Map();
+  for (const link of links) {
+    if (link.url === pageUrl) continue;
+    const m = link.url.match(/^(.*?)(\d+)\/?(?:[?#].*)?$/);
+    if (!m) continue;
+    const key = m[1];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...link, num: Number(m[2]) });
+  }
+  let best = null;
+  for (const arr of groups.values()) {
+    if (arr.length >= 3 && (!best || arr.length > best.length)) best = arr;
+  }
+  return best ? best.sort((a, b) => a.num - b.num) : null;
 }
 
-async function ristoFetchHtml(url) {
-  const safe = ristoAbsUrl(url);
-  if (!safe) throw new Error('رابط RistoAnime غير صالح.');
-  const response = await fetch(safe, {
+async function siteFetchHtml(url) {
+  const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; AHMED-dashboard Risto importer)',
+      'User-Agent': 'Mozilla/5.0 (compatible; AHMED-dashboard site importer)',
       'Accept': 'text/html,application/xhtml+xml',
     },
     redirect: 'follow',
   });
-  if (!response.ok) throw new Error(`RistoAnime HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const text = await response.text();
-  if (text.length > RISTO_MAX_HTML) return text.slice(0, RISTO_MAX_HTML);
+  if (text.length > SITE_MAX_HTML) return text.slice(0, SITE_MAX_HTML);
   return text;
 }
 
-function ristoParseCatalog(html) {
+function siteStripSlash(url) { return String(url || '').replace(/\/$/, ''); }
+
+function siteParseCatalog(html, base) {
+  const origin = new URL(base).origin;
+  const basePath = siteStripSlash(base);
+  const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, origin) && siteStripSlash(l.url) !== basePath);
+  const candidates = links.filter(l => l.text && !SITE_JUNK_PATH.test(new URL(l.url).pathname));
+
+  // Group by first path segment (e.g. "/anime/one-piece" -> "anime") and use
+  // the largest group — this is what makes catalog detection work on any
+  // site's URL scheme instead of one hardcoded path prefix.
+  const groups = new Map();
+  for (const link of candidates) {
+    const seg = new URL(link.url).pathname.split('/').filter(Boolean)[0] || '';
+    if (!groups.has(seg)) groups.set(seg, []);
+    groups.get(seg).push(link);
+  }
+  let chosen = [];
+  for (const arr of groups.values()) if (arr.length > chosen.length) chosen = arr;
+  if (chosen.length < 3) chosen = candidates;
+
   const result = [];
   const seen = new Set();
-  for (const link of ristoLinks(html)) {
-    if (!/\/series\//.test(new URL(link.url).pathname)) continue;
+  for (const link of chosen) {
     if (seen.has(link.url)) continue;
     seen.add(link.url);
-    const title = link.text || ristoExtractTitle(html, 'أنمي بلا اسم');
-    const thumb = ristoExtractThumbnail(html);
-    result.push({ url: link.url, title: ristoBilingualTitle(title, link.url), thumbnail: thumb || null });
-    if (result.length >= RISTO_MAX_RESULTS) break;
+    // Deliberately no whole-page fallback here: this used to fall back to a
+    // single page-wide image and stamp it on every catalog item (a real bug
+    // in the old RistoAnime-only version). Leaving it null when the card has
+    // no image of its own lets the show's own page (visited next) supply an
+    // accurate poster instead of a wrong shared one.
+    const thumb = siteImageFrom(link.html, base);
+    result.push({ url: link.url, title: siteLinkTitle(link.html, link.text), thumbnail: thumb || null });
+    if (result.length >= SITE_MAX_RESULTS) break;
   }
   return result;
 }
 
-function ristoParseSeries(html, fallbackTitle = '', fallbackThumbnail = '') {
-  const links = ristoLinks(html);
+function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = '') {
+  const origin = new URL(pageUrl).origin;
+  const basePath = siteStripSlash(pageUrl);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, origin) && siteStripSlash(l.url) !== basePath);
+  const ownTitle = siteExtractTitle(html, fallbackTitle);
+  const showTokens = siteSignificantTokens(`${fallbackTitle} ${ownTitle} ${decodeURIComponent(new URL(pageUrl).pathname)}`);
   const episodes = [];
   const seasons = [];
+  const leftover = [];
   const seenEpisodes = new Set();
   const seenSeasons = new Set();
   for (const link of links) {
-    if (ristoWatchUrl(link.url)) continue;
-    if (ristoLooksLikeSeason(link.url, link.text)) {
+    // The card's own heading (siteLinkTitle), not the whole anchor's raw
+    // text — cards on these themes commonly bleed adjacent-card text into
+    // the same <a>'s stripped text, which previously caused unrelated
+    // shows/episodes to be misclassified as this show's own seasons.
+    const linkTitle = siteLinkTitle(link.html, link.text);
+    if (!siteBelongsToShow(linkTitle, link.url, showTokens)) { leftover.push(link); continue; }
+    // Episode first: a URL slug like ".../season-4-episode-8/" matches both
+    // patterns, but it links straight to a playable episode, not a season
+    // index page, so the episode reading is the useful one when both match.
+    if (siteLooksLikeEpisode(linkTitle, link.url)) {
+      if (seenEpisodes.has(link.url)) continue;
+      seenEpisodes.add(link.url);
+      episodes.push({
+        url: link.url,
+        title: linkTitle || decodeURIComponent(new URL(link.url).pathname),
+        episodeNumber: siteEpisodeNumber(linkTitle, link.url),
+        thumbnail: siteImageFrom(link.html, pageUrl) || null,
+      });
+      continue;
+    }
+    if (siteLooksLikeSeason(linkTitle, link.url)) {
       if (!seenSeasons.has(link.url)) {
         seenSeasons.add(link.url);
-        seasons.push({ url: link.url, title: ristoBilingualTitle(link.text || decodeURIComponent(new URL(link.url).pathname), link.url), episodes: [] });
+        seasons.push({ url: link.url, title: linkTitle || decodeURIComponent(new URL(link.url).pathname), episodes: [] });
       }
       continue;
     }
-    if (!ristoLooksLikeEpisode(link.url, link.text)) continue;
-    if (seenEpisodes.has(link.url)) continue;
-    seenEpisodes.add(link.url);
-    episodes.push({
-      url: link.url,
-      watchUrl: ristoWatchUrl(link.url) || '',
-      title: ristoBilingualTitle(link.text || decodeURIComponent(new URL(link.url).pathname), link.url),
-      episodeNumber: ristoEpisodeNumber(link.text, link.url),
-      thumbnail: null,
-    });
+    leftover.push(link);
+  }
+  if (!episodes.length && !seasons.length) {
+    const numbered = siteDetectNumberedSeries(leftover, pageUrl);
+    if (numbered) {
+      for (const link of numbered) {
+        if (seenEpisodes.has(link.url)) continue;
+        seenEpisodes.add(link.url);
+        episodes.push({
+          url: link.url,
+          title: siteLinkTitle(link.html, link.text) || `الحلقة ${link.num}`,
+          episodeNumber: link.num,
+          thumbnail: siteImageFrom(link.html, pageUrl) || null,
+        });
+      }
+    }
   }
   return {
-    title: ristoBilingualTitle(ristoExtractTitle(html, fallbackTitle), ''),
-    thumbnail: ristoExtractThumbnail(html) || fallbackThumbnail || null,
+    title: ownTitle,
+    thumbnail: siteExtractThumbnail(html, pageUrl) || fallbackThumbnail || null,
     episodes,
     seasons,
-    nextPageUrl: ristoNextPage(html) || '',
+    nextPageUrl: siteNextPage(links) || '',
   };
 }
 
-function ristoParseWatchFromHtml(html) {
-  const links = ristoLinks(html);
-  for (const link of links) {
-    const watch = ristoWatchUrl(link.url);
-    if (watch) return watch;
-  }
-  const raw = String(html || '').match(/https:\/\/ristoanime\.me\/[^"'<>\\s]+\/watch\//i);
-  return raw ? ristoAbsUrl(raw[0]) : '';
-}
-
-async function handleRistoAnimeImport(request, env) {
+async function handleSiteImport(request, env) {
   const adminKey = request.headers.get('x-admin-key');
   if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
     return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
@@ -899,38 +1019,21 @@ async function handleRistoAnimeImport(request, env) {
   const action = body && body.action;
   try {
     if (action === 'catalog') {
-      const url = ristoAbsUrl(body.url || `${RISTO_ORIGIN}/series/`);
-      const html = await ristoFetchHtml(url);
-      const parsed = ristoParseCatalog(html);
-      return json({ ok: true, series: parsed, nextPageUrl: ristoNextPage(html) || null });
+      const url = siteAbsUrl(body.url);
+      if (!url) return json({ error: 'invalid-argument', message: 'رابط صفحة القائمة غير صالح.' }, 400);
+      const html = await siteFetchHtml(url);
+      const parsed = siteParseCatalog(html, url);
+      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).origin)));
+      return json({ ok: true, series: parsed, nextPageUrl: nextPageUrl || null });
     }
     if (action === 'series') {
-      const url = ristoAbsUrl(body.url);
-      if (!url) return json({ error: 'invalid-argument', message: 'رابط السلسلة مطلوب.' }, 400);
-      const html = await ristoFetchHtml(url);
-      const parsed = ristoParseSeries(html, body.fallbackTitle || '', body.fallbackThumbnail || '');
+      const url = siteAbsUrl(body.url);
+      if (!url) return json({ error: 'invalid-argument', message: 'رابط الصفحة مطلوب.' }, 400);
+      const html = await siteFetchHtml(url);
+      const parsed = siteParseSeries(html, url, body.fallbackTitle || '', body.fallbackThumbnail || '');
       return json({ ok: true, ...parsed });
     }
-    if (action === 'resolveEpisodes') {
-      const urls = Array.isArray(body.urls) ? body.urls.slice(0, 40) : [];
-      const episodes = [];
-      for (const originalUrl of urls) {
-        const safe = ristoAbsUrl(originalUrl);
-        if (!safe) continue;
-        const html = await ristoFetchHtml(safe);
-        const watchUrl = ristoParseWatchFromHtml(html);
-        if (!watchUrl) continue;
-        episodes.push({
-          originalUrl: safe,
-          watchUrl,
-          title: ristoBilingualTitle(ristoExtractTitle(html, ''), safe),
-          episodeNumber: ristoEpisodeNumber(ristoExtractTitle(html, ''), safe),
-          thumbnail: ristoExtractThumbnail(html) || body.fallbackThumbnail || null,
-        });
-      }
-      return json({ ok: true, episodes });
-    }
-    return json({ error: 'invalid-argument', message: 'إجراء RistoAnime غير معروف.' }, 400);
+    return json({ error: 'invalid-argument', message: 'إجراء استيراد غير معروف.' }, 400);
   } catch (error) {
     return json({ error: 'upstream-error', message: String(error && error.message || error) }, 502);
   }
@@ -963,8 +1066,8 @@ export default {
       return handleGetPreMatchInfo(request, env);
     }
 
-    if (request.method === 'POST' && url.pathname === '/ristoAnime/import') {
-      return handleRistoAnimeImport(request, env);
+    if (request.method === 'POST' && url.pathname === '/import/site') {
+      return handleSiteImport(request, env);
     }
 
     const hlsMatch = request.method === 'GET' && url.pathname.match(/^\/hls\/([^/]+)\/(.+)$/);
