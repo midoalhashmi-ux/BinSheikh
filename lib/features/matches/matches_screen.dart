@@ -129,10 +129,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   Future<void> _openFilterSheet() async {
     final chosen = await showModalBottomSheet<_StatusFilter>(
       context: context,
-      backgroundColor: const Color(0xFF10182B),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
       builder: (context) {
         Widget option(_StatusFilter value, String label, IconData icon) {
           final selected = _statusFilter == value;
@@ -266,7 +262,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: primary.withOpacity(0.15),
+                    color: primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(Icons.sports_soccer, size: 18, color: primary),
@@ -308,7 +304,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: active ? Colors.redAccent : Colors.redAccent.withOpacity(0.15),
+              color: active ? Colors.redAccent : Colors.redAccent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

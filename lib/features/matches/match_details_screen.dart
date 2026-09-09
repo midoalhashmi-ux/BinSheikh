@@ -147,7 +147,7 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.15),
+                color: primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
