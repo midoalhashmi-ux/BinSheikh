@@ -30,7 +30,14 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text('BinSheikh'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.live_tv_rounded, color: Theme.of(context).colorScheme.primary, size: 22),
+            const SizedBox(width: 8),
+            const Text('BinSheikh'),
+          ],
+        ),
         // زر القائمة الجانبية (كان يظهر تلقائياً بمكان "leading" — يمين
         // الشاشة في العربية) انتقل الآن ليكون action (يسار الشاشة)، وزر
         // المفضلة انتقل من action إلى leading (يمين الشاشة) — عكس الترتيب

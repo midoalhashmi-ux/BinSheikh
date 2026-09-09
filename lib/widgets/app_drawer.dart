@@ -20,73 +20,90 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Drawer(
       child: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-              ),
-              child: Align(
-                alignment: Alignment.bottomRight,
-                child: Text(
-                  'BinSheikh',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('مشاركة التطبيق'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _shareApp(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.support_agent),
-              title: const Text('تواصل معنا'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ContactScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: const Text('الشروط والأحكام'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const LegalScreen(
-                      field: 'terms',
-                      title: 'الشروط والأحكام',
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.live_tv_rounded, color: accent, size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'BinSheikh',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                     ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.privacy_tip_outlined),
-              title: const Text('سياسة الخصوصية'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const LegalScreen(
-                      field: 'privacy',
-                      title: 'سياسة الخصوصية',
-                    ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.share_outlined),
+                    title: const Text('مشاركة التطبيق'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _shareApp(context);
+                    },
                   ),
-                );
-              },
+                  ListTile(
+                    leading: const Icon(Icons.support_agent_outlined),
+                    title: const Text('تواصل معنا'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ContactScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+                  ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('الشروط والأحكام'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LegalScreen(
+                            field: 'terms',
+                            title: 'الشروط والأحكام',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('سياسة الخصوصية'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LegalScreen(
+                            field: 'privacy',
+                            title: 'سياسة الخصوصية',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),

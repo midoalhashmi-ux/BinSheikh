@@ -36,12 +36,12 @@ class ChannelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final disabled = channel.status == 'disabled';
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
-        onTap: channel.status == 'disabled'
+        onTap: disabled
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('هذه القناة متوقفة مؤقتاً.')),
                 )
@@ -55,12 +55,12 @@ class ChannelCard extends StatelessWidget {
                 child: channel.logoUrl != null && channel.logoUrl!.isNotEmpty
                     ? Image.network(
                         channel.logoUrl!,
-                        width: 64,
-                        height: 64,
+                        width: 60,
+                        height: 60,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackLogo(theme),
+                        errorBuilder: (_, __, ___) => _fallbackLogo(accent),
                       )
-                    : _fallbackLogo(theme),
+                    : _fallbackLogo(accent),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -68,25 +68,29 @@ class ChannelCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(channel.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
                     Text(channel.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.grey)),
+                            ?.copyWith(color: Colors.white60)),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _statusColor(context).withOpacity(0.15),
+                        color: _statusColor(context).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         _statusLabel(),
                         style: TextStyle(
                           color: _statusColor(context),
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -101,14 +105,20 @@ class ChannelCard extends StatelessWidget {
                   return IconButton(
                     icon: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.redAccent : Colors.grey,
+                      color: isFavorite ? Colors.redAccent : Colors.white38,
                     ),
                     tooltip: isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
                     onPressed: () => FavoritesService.toggleFavorite(channel.id),
                   );
                 },
               ),
-              const Icon(Icons.play_circle_fill, size: 34),
+              if (!disabled)
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                ),
             ],
           ),
         ),
@@ -116,12 +126,12 @@ class ChannelCard extends StatelessWidget {
     );
   }
 
-  Widget _fallbackLogo(ThemeData theme) {
+  Widget _fallbackLogo(Color accent) {
     return Container(
-      width: 64,
-      height: 64,
-      color: theme.colorScheme.primary.withOpacity(0.15),
-      child: Icon(Icons.sports_soccer, color: theme.colorScheme.primary),
+      width: 60,
+      height: 60,
+      color: accent.withValues(alpha: 0.15),
+      child: Icon(Icons.sports_soccer, color: accent),
     );
   }
 }

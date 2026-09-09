@@ -74,6 +74,13 @@ class AppTheme {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: primaryColor,
+        unselectedLabelColor: onSurfaceMuted,
+        indicatorColor: primaryColor,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+      ),
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
@@ -109,6 +116,15 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: primaryColor,
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: onPrimary,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -177,6 +193,19 @@ class AppTheme {
         ),
       ),
       drawerTheme: DrawerThemeData(backgroundColor: surface),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surface,
+        indicatorColor: primaryColor.withValues(alpha: 0.18),
+        surfaceTintColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+              fontSize: 11.5,
+              fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+              color: states.contains(WidgetState.selected) ? primaryColor : onSurfaceMuted,
+            )),
+        iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+              color: states.contains(WidgetState.selected) ? primaryColor : onSurfaceMuted,
+            )),
+      ),
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: surfaceVariant,
         labelStyle: const TextStyle(color: Colors.white, fontSize: 12),

@@ -49,10 +49,21 @@ class ChannelsHomeTab extends StatelessWidget {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        color: Colors.black54,
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.fromLTRB(12, 22, 12, 12),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black87],
+                          ),
+                        ),
                         child: Text(category.title,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],
@@ -65,8 +76,11 @@ class ChannelsHomeTab extends StatelessWidget {
     );
   }
 
-  Widget _fallback(BuildContext context) => Container(
-        color: Theme.of(context).colorScheme.primary.withOpacity(.18),
-        child: Icon(Icons.sports_soccer, size: 42, color: Theme.of(context).colorScheme.primary),
-      );
+  Widget _fallback(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Container(
+      color: accent.withValues(alpha: 0.18),
+      child: Icon(Icons.sports_soccer, size: 42, color: accent),
+    );
+  }
 }

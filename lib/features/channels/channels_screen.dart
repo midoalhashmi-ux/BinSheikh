@@ -22,9 +22,16 @@ class ChannelsScreen extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('تعذر تحميل الأقسام الفرعية.\nتحقق من اتصال الإنترنت.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.wifi_off_rounded, size: 42, color: Colors.white38),
+                    const SizedBox(height: 10),
+                    Text('تعذر تحميل الأقسام الفرعية.\nتحقق من اتصال الإنترنت.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
               ),
             );
           }
@@ -45,9 +52,6 @@ class ChannelsScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final child = childCategories[index];
                 return Card(
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18)),
                   child: InkWell(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -65,7 +69,7 @@ class ChannelsScreen extends StatelessWidget {
                               color: Theme.of(context)
                                   .colorScheme
                                   .primary
-                                  .withOpacity(0.15),
+                                  .withValues(alpha: 0.15),
                             ),
                           )
                         else
@@ -73,20 +77,29 @@ class ChannelsScreen extends StatelessWidget {
                             color: Theme.of(context)
                                 .colorScheme
                                 .primary
-                                .withOpacity(0.15),
+                                .withValues(alpha: 0.15),
                           ),
                         Positioned(
                           left: 0,
                           right: 0,
                           bottom: 0,
                           child: Container(
-                            padding: const EdgeInsets.all(10),
-                            color: Colors.black54,
+                            padding: const EdgeInsets.fromLTRB(12, 22, 12, 12),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Colors.black87],
+                              ),
+                            ),
                             child: Text(
                               child.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -158,7 +171,16 @@ class _ChannelsList extends StatelessWidget {
         }
         final channels = snapshot.data!;
         if (channels.isEmpty) {
-          return const Center(child: Text('لا توجد قنوات بعد في هذا القسم'));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.live_tv_outlined, size: 42, color: Colors.white38),
+                SizedBox(height: 10),
+                Text('لا توجد قنوات بعد في هذا القسم'),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(12),
