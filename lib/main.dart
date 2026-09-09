@@ -62,30 +62,34 @@ class _BootAppState extends State<_BootApp> {
 class _SplashApp extends StatelessWidget {
   const _SplashApp();
   @override
-  Widget build(BuildContext context) => const MaterialApp(
+  Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: Color(0xFF0B1120),
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.live_tv, size: 72, color: Color(0xFF38BDF8)),
-                SizedBox(height: 16),
-                Text(
-                  'BinSheikh',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
+        theme: AppTheme.fallback,
+        home: Builder(
+          builder: (context) {
+            final accent = Theme.of(context).colorScheme.primary;
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.live_tv, size: 72, color: accent),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'BinSheikh',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const CircularProgressIndicator(),
+                  ],
                 ),
-                SizedBox(height: 24),
-                CircularProgressIndicator(color: Color(0xFF38BDF8)),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       );
 }
@@ -96,14 +100,13 @@ class _ErrorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
+        theme: AppTheme.fallback,
         home: Scaffold(
-          backgroundColor: const Color(0xFF0B1120),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text('تعذر بدء خدمة المحتوى.\n\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white)),
+                  textAlign: TextAlign.center),
             ),
           ),
         ),
@@ -209,9 +212,9 @@ class _UpdateGateState extends State<_UpdateGate> {
     if (_busy) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: const Color(0xFF0B1120),
-          body: const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8))),
+        theme: AppTheme.fallback,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
         ),
       );
     }
