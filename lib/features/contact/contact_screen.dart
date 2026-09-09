@@ -48,19 +48,46 @@ class _ContactScreenState extends State<ContactScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       appBar: AppBar(title: const Text('تواصل معنا')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
-            const Text('نوع الرسالة', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.support_agent_outlined, color: accent),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'راسلنا لأي استفسار أو رابط بث معطوب، وبنرد عليك بأقرب وقت.',
+                      style: TextStyle(height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('نوع الرسالة', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'general', label: Text('استفسار عام')),
-                ButtonSegment(value: 'broken_link', label: Text('رابط معطوب')),
+                ButtonSegment(
+                    value: 'general',
+                    label: Text('استفسار عام'),
+                    icon: Icon(Icons.chat_bubble_outline, size: 17)),
+                ButtonSegment(
+                    value: 'broken_link',
+                    label: Text('رابط معطوب'),
+                    icon: Icon(Icons.link_off, size: 17)),
               ],
               selected: {_type},
               onSelectionChanged: (selection) => setState(() => _type = selection.first),
@@ -71,18 +98,21 @@ class _ContactScreenState extends State<ContactScreen> {
                 controller: _channelController,
                 decoration: const InputDecoration(
                   labelText: 'اسم القناة أو القسم المتعلق (اختياري)',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.live_tv_outlined),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
             ],
             TextFormField(
               controller: _messageController,
               maxLines: 6,
               decoration: InputDecoration(
                 labelText: _type == 'broken_link' ? 'صف المشكلة بالتفصيل' : 'رسالتك',
-                border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(bottom: 100),
+                  child: Icon(Icons.message_outlined),
+                ),
               ),
               validator: (value) {
                 if (value == null || value.trim().length < 5) {
@@ -92,14 +122,18 @@ class _ContactScreenState extends State<ContactScreen> {
               },
             ),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _sending ? null : _submit,
-              child: _sending
-                  ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('إرسال'),
+            SizedBox(
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: _sending ? null : _submit,
+                icon: _sending
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.send_rounded, size: 19),
+                label: Text(_sending ? 'جاري الإرسال…' : 'إرسال'),
+              ),
             ),
           ],
         ),

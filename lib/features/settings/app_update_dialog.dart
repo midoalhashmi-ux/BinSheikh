@@ -25,7 +25,16 @@ class AppUpdateDialog extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: AlertDialog(
-        icon: const Icon(Icons.system_update, size: 36),
+        icon: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.system_update_rounded,
+              size: 32, color: Theme.of(context).colorScheme.primary),
+        ),
         title: const Text('تحديث متوفر'),
         content: Text(message, textAlign: TextAlign.center),
         actions: [

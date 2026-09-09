@@ -23,16 +23,29 @@ Future<void> openExternalPlayerSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.play_circle_outline, size: 54),
-          const SizedBox(height: 14),
-          Text('تطبيق المشغل غير جاهز',
-              style: Theme.of(sheetContext).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          const Text(
-            'تحتاج هذه القناة إلى تطبيق المشغل المنفصل. بعد تثبيته سيتم فتح القناة مباشرة من هنا.',
-            textAlign: TextAlign.center,
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: Theme.of(sheetContext).colorScheme.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.play_circle_outline,
+                size: 40, color: Theme.of(sheetContext).colorScheme.primary),
           ),
           const SizedBox(height: 18),
+          Text('تطبيق المشغل غير جاهز',
+              style: Theme.of(sheetContext)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            'تحتاج هذه القناة إلى تطبيق المشغل المنفصل. بعد تثبيته سيتم فتح القناة مباشرة من هنا.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          ),
+          const SizedBox(height: 20),
           if (settings.storeUrl != null && settings.storeUrl!.isNotEmpty)
             FilledButton.icon(
               onPressed: () => PlayerService.openStore(settings),

@@ -34,10 +34,10 @@ class _LegalScreenState extends State<LegalScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: SelectableText(
               snapshot.data ?? '',
-              style: const TextStyle(height: 1.6, fontSize: 15),
+              style: TextStyle(height: 1.7, fontSize: 14.5, color: Colors.white.withValues(alpha: 0.85)),
             ),
           );
         },
