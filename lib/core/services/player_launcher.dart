@@ -16,7 +16,19 @@ import '../models/player_settings.dart';
 ///    (deepLinkScheme) كخطة بديلة.
 /// 3) إن فشل الاثنان: عرض رسالة تحميل المشغل من المتجر.
 class PlayerLauncher {
+  // يحمي من استدعاء مزدوج خلال وقت قصير جداً (ضغطة سريعة مكررة، أو حدث لمس
+  // مسجَّل مرتين من النظام) — كان يتسبب بإرسال رابطين عميقين متتاليين
+  // لتطبيق المشغل لنفس القناة، فيفتح المشغل شاشة مشاهدة ثم يستبدلها فوراً
+  // بأخرى قبل ما تكتمل حتى محاولة تحميل المصدر الأولى.
+  static DateTime? _lastOpenAt;
+
   static Future<void> openChannel(BuildContext context, String channelId) async {
+    final now = DateTime.now();
+    if (_lastOpenAt != null && now.difference(_lastOpenAt!) < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastOpenAt = now;
+
     PlayerSettings settings;
     try {
       final snapshot = await FirebaseFirestore.instance
