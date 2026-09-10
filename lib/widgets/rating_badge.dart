@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// شارة نسبة تقييم (0-100) تُعرض أعلى بطاقات الأفلام/المسلسلات/الأنمي.
+/// شارة تقييم (مخزّنة 0-100 داخلياً، تُعرض بصيغة "X.X/10" المعتادة —
+/// نفس أسلوب IMDb/TMDB) تُظهر أعلى بطاقات الأفلام/المسلسلات/الأنمي.
 /// تُبنى فقط عند وجود [CategoryModel.rating] فعلياً — لا تظهر إطلاقاً
 /// للأقسام غير المفحوصة بعد أو التي لم يُعثر لها على تطابق موثوق.
 class RatingBadge extends StatelessWidget {
@@ -9,6 +10,7 @@ class RatingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final outOfTen = (rating / 10).toStringAsFixed(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -22,7 +24,7 @@ class RatingBadge extends StatelessWidget {
           const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
           const SizedBox(width: 3),
           Text(
-            '$rating%',
+            '$outOfTen/10',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 11.5,
