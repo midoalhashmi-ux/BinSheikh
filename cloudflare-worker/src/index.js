@@ -721,7 +721,11 @@ function siteSameOrigin(url, origin) {
 
 function siteImageFromTag(tag, base) {
   const attrs = String(tag || '');
-  const names = ['data-src', 'data-lazy-src', 'data-original', 'src'];
+  // "src" stays last on purpose: lazy-load scripts commonly leave a generic
+  // placeholder (e.g. a "no poster" image) there until JS swaps it in from
+  // one of these custom attributes, so checking src first would silently
+  // return the placeholder for every single item instead of the real image.
+  const names = ['data-image', 'data-src', 'data-lazy-src', 'data-original', 'data-echo', 'data-lazy', 'src'];
   for (const name of names) {
     const re = new RegExp('\\b' + name + '\\s*=\\s*["\']([^"\']+)["\']', 'i');
     const m = attrs.match(re);
@@ -791,11 +795,15 @@ function siteExtractThumbnail(html, base) {
 }
 
 // A catalog/series card usually wraps unrelated badges (genre, quality,
-// rating) inside the same <a> as the real title — taking the whole anchor's
-// text mixes all of that together. A heading tag inside the card is almost
-// always the real title, so prefer it; fall back to an image alt text, then
-// to the full stripped text only as a last resort.
-function siteLinkTitle(innerHtml, fallbackText) {
+// rating, a repeated episode-number badge) inside the same <a> as the real
+// title — taking the whole anchor's text mixes all of that together. The
+// anchor's own title="" attribute is the cleanest source when present (a
+// common accessibility/SEO convention themes keep free of badge clutter);
+// a heading tag inside the card is the next best signal; then an image's
+// alt text; the full stripped text is only a last resort.
+function siteLinkTitle(attrs, innerHtml, fallbackText) {
+  const titleAttr = String(attrs || '').match(/\btitle\s*=\s*["']([^"']+)["']/i);
+  if (titleAttr) { const t = siteText(titleAttr[1]); if (t) return t; }
   const h = String(innerHtml || '').match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
   if (h) { const t = siteText(h[1]); if (t) return t; }
   const alt = String(innerHtml || '').match(/\balt\s*=\s*["']([^"']+)["']/i);
@@ -938,7 +946,7 @@ function siteParseCatalog(html, base) {
     // no image of its own lets the show's own page (visited next) supply an
     // accurate poster instead of a wrong shared one.
     const thumb = siteImageFrom(link.html, base);
-    result.push({ url: link.url, title: siteLinkTitle(link.html, link.text), thumbnail: thumb || null });
+    result.push({ url: link.url, title: siteLinkTitle(link.attrs, link.html, link.text), thumbnail: thumb || null });
     if (result.length >= SITE_MAX_RESULTS) break;
   }
   return result;
@@ -960,7 +968,7 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
     // text — cards on these themes commonly bleed adjacent-card text into
     // the same <a>'s stripped text, which previously caused unrelated
     // shows/episodes to be misclassified as this show's own seasons.
-    const linkTitle = siteLinkTitle(link.html, link.text);
+    const linkTitle = siteLinkTitle(link.attrs, link.html, link.text);
     if (!siteBelongsToShow(linkTitle, link.url, showTokens)) { leftover.push(link); continue; }
     // Episode first: a URL slug like ".../season-4-episode-8/" matches both
     // patterns, but it links straight to a playable episode, not a season
@@ -993,7 +1001,7 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
         seenEpisodes.add(link.url);
         episodes.push({
           url: link.url,
-          title: siteLinkTitle(link.html, link.text) || `الحلقة ${link.num}`,
+          title: siteLinkTitle(link.attrs, link.html, link.text) || `الحلقة ${link.num}`,
           episodeNumber: link.num,
           thumbnail: siteImageFrom(link.html, pageUrl) || null,
         });
