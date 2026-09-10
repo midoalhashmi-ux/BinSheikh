@@ -61,7 +61,6 @@ class AppTheme {
       scaffoldBackgroundColor: backgroundColor,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
-      fontFamily: GoogleFonts.tajawal().fontFamily,
       splashFactory: InkRipple.splashFactory,
       appBarTheme: AppBarTheme(
         backgroundColor: backgroundColor,
