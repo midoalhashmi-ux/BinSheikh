@@ -53,11 +53,13 @@ class _HomeShellState extends State<HomeShell> {
           IconButton(
             icon: const Icon(Icons.menu),
             tooltip: 'القائمة',
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
       ),
-      drawer: const AppDrawer(),
+      // endDrawer (بدل drawer) يفتح من نفس جهة زر القائمة (الآن بـ actions،
+      // أي يسار الشاشة بالعربية) بدل الجهة المقابلة.
+      endDrawer: const AppDrawer(),
       // IndexedStack يحافظ على حالة كل تبويب (مثلاً موضع اليوم المختار في
       // شاشة النتائج) عند التنقل بينهما بدل إعادة بنائه من الصفر.
       body: IndexedStack(

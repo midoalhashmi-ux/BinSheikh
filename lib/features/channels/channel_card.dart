@@ -7,32 +7,6 @@ class ChannelCard extends StatelessWidget {
   final ChannelModel channel;
   const ChannelCard({super.key, required this.channel});
 
-  Color _statusColor(BuildContext context) {
-    switch (channel.status) {
-      case 'live':
-        return Colors.redAccent;
-      case 'upcoming':
-        return Colors.amber;
-      case 'disabled':
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _statusLabel() {
-    switch (channel.status) {
-      case 'live':
-        return 'مباشر الآن';
-      case 'upcoming':
-        return 'قريباً';
-      case 'disabled':
-        return 'معطّلة';
-      default:
-        return 'انتهى';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -78,23 +52,6 @@ class ChannelCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: Colors.white60)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor(context).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        _statusLabel(),
-                        style: TextStyle(
-                          color: _statusColor(context),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
