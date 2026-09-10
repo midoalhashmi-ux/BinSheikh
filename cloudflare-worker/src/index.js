@@ -715,8 +715,30 @@ function siteAbsUrl(value, base) {
   } catch (_) { return ''; }
 }
 
-function siteSameOrigin(url, origin) {
-  try { return new URL(url).origin === origin; } catch (_) { return false; }
+// A few multi-part public suffixes where the naive "last two labels" rule
+// below would wrongly treat unrelated sites as the same one (e.g. any two
+// ".co.uk" sites). Not exhaustive — just covers common cases well enough
+// for this heuristic.
+const SITE_MULTIPART_SUFFIXES = new Set([
+  'co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'co.il', 'co.jp', 'co.nz', 'co.kr',
+  'com.sa', 'com.eg', 'com.au', 'com.br', 'com.tr', 'com.cn', 'com.mx',
+]);
+function siteRegistrableDomain(hostname) {
+  const parts = String(hostname || '').toLowerCase().split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  const lastTwo = parts.slice(-2).join('.');
+  if (SITE_MULTIPART_SUFFIXES.has(lastTwo) && parts.length >= 3) return parts.slice(-3).join('.');
+  return lastTwo;
+}
+
+// Many sites spread pages across sibling subdomains (e.g. episode pages on
+// ww5.example.com while the show page is on ww4.example.com — confirmed on
+// a real site during this session, where strict origin-matching silently
+// dropped every real episode link and a fallback heuristic grabbed an
+// unrelated nav link instead). Same registrable domain is treated as "the
+// same site" instead of requiring an exact origin match.
+function siteSameOrigin(url, baseHostname) {
+  try { return siteRegistrableDomain(new URL(url).hostname) === siteRegistrableDomain(baseHostname); } catch (_) { return false; }
 }
 
 function siteImageFromTag(tag, base) {
@@ -935,9 +957,9 @@ async function siteFetchHtml(url) {
 function siteStripSlash(url) { return String(url || '').replace(/\/$/, ''); }
 
 function siteParseCatalog(html, base) {
-  const origin = new URL(base).origin;
+  const baseHostname = new URL(base).hostname;
   const basePath = siteStripSlash(base);
-  const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, origin) && siteStripSlash(l.url) !== basePath);
+  const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
   const candidates = links.filter(l => l.text && !SITE_JUNK_PATH.test(new URL(l.url).pathname));
 
   // Group by first path segment (e.g. "/anime/one-piece" -> "anime") and use
@@ -971,9 +993,9 @@ function siteParseCatalog(html, base) {
 }
 
 function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = '') {
-  const origin = new URL(pageUrl).origin;
+  const baseHostname = new URL(pageUrl).hostname;
   const basePath = siteStripSlash(pageUrl);
-  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, origin) && siteStripSlash(l.url) !== basePath);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
   const ownTitle = siteExtractTitle(html, fallbackTitle);
   const showTokens = siteSignificantTokens(`${fallbackTitle} ${ownTitle} ${decodeURIComponent(new URL(pageUrl).pathname)}`);
   const episodes = [];
@@ -1042,9 +1064,9 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
 // sample episode (see resolveEpisode below) rather than assumed, so sites
 // where the episode link is already directly playable are left alone.
 function siteFindWatchLink(html, pageUrl) {
-  const origin = new URL(pageUrl).origin;
+  const baseHostname = new URL(pageUrl).hostname;
   const base = siteStripSlash(pageUrl);
-  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, origin) && l.url !== pageUrl);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, baseHostname) && l.url !== pageUrl);
   for (const link of links) {
     if (siteStripSlash(link.url) === `${base}/watch`) return link.url;
   }
@@ -1068,7 +1090,7 @@ async function handleSiteImport(request, env) {
       if (!url) return json({ error: 'invalid-argument', message: 'رابط صفحة القائمة غير صالح.' }, 400);
       const html = await siteFetchHtml(url);
       const parsed = siteParseCatalog(html, url);
-      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).origin)), url);
+      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).hostname)), url);
       return json({ ok: true, series: parsed, nextPageUrl: nextPageUrl || null });
     }
     if (action === 'series') {
