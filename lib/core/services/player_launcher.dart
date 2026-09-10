@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:android_intent_plus/android_intent.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/player_settings.dart';
+import 'content_service.dart';
 
 /// تطبيق المحتوى لا يملك رابط البث. يرسل معرف القناة فقط إلى المشغل الخارجي.
 ///
@@ -22,12 +24,17 @@ class PlayerLauncher {
   // بأخرى قبل ما تكتمل حتى محاولة تحميل المصدر الأولى.
   static DateTime? _lastOpenAt;
 
-  static Future<void> openChannel(BuildContext context, String channelId) async {
+  static Future<void> openChannel(
+    BuildContext context,
+    String channelId, {
+    String? categoryId,
+  }) async {
     final now = DateTime.now();
     if (_lastOpenAt != null && now.difference(_lastOpenAt!) < const Duration(seconds: 1)) {
       return;
     }
     _lastOpenAt = now;
+    unawaited(ContentService.recordView(channelId: channelId, categoryId: categoryId));
 
     PlayerSettings settings;
     try {

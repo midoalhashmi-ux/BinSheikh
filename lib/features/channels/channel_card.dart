@@ -5,7 +5,14 @@ import '../../core/services/player_launcher.dart';
 
 class ChannelCard extends StatelessWidget {
   final ChannelModel channel;
-  const ChannelCard({super.key, required this.channel});
+  // يُخفى زر القلب على مستوى الحلقة عندما تكون المفضلة مُفعَّلة على مستوى
+  // القسم كاملاً (مسلسل/أنمي) بدل الحلقة الواحدة — راجع _ChannelsList.
+  final bool showFavoriteButton;
+  const ChannelCard({
+    super.key,
+    required this.channel,
+    this.showFavoriteButton = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +26,8 @@ class ChannelCard extends StatelessWidget {
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('هذه القناة متوقفة مؤقتاً.')),
                 )
-            : () => PlayerLauncher.openChannel(context, channel.id),
+            : () => PlayerLauncher.openChannel(context, channel.id,
+                categoryId: channel.categoryId),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -41,11 +49,14 @@ class ChannelCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(channel.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Tooltip(
+                      message: channel.title,
+                      child: Text(channel.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                    ),
                     const SizedBox(height: 3),
                     Text(channel.subtitle,
                         maxLines: 1,
@@ -55,20 +66,21 @@ class ChannelCard extends StatelessWidget {
                   ],
                 ),
               ),
-              ValueListenableBuilder<Set<String>>(
-                valueListenable: FavoritesService.favorites,
-                builder: (context, favoriteIds, _) {
-                  final isFavorite = favoriteIds.contains(channel.id);
-                  return IconButton(
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.redAccent : Colors.white38,
-                    ),
-                    tooltip: isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
-                    onPressed: () => FavoritesService.toggleFavorite(channel.id),
-                  );
-                },
-              ),
+              if (showFavoriteButton)
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: FavoritesService.favorites,
+                  builder: (context, favoriteIds, _) {
+                    final isFavorite = favoriteIds.contains(channel.id);
+                    return IconButton(
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.redAccent : Colors.white38,
+                      ),
+                      tooltip: isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+                      onPressed: () => FavoritesService.toggleFavorite(channel.id),
+                    );
+                  },
+                ),
               if (!disabled)
                 Container(
                   width: 38,

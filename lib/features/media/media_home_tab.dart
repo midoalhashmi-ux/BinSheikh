@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/category_model.dart';
 import '../../core/services/content_service.dart';
+import '../../widgets/section_search_field.dart';
 import '../channels/channels_screen.dart';
 
 class MediaHomeTab extends StatelessWidget {
@@ -62,23 +63,41 @@ class MediaHomeTab extends StatelessWidget {
   }
 }
 
-class MediaCategoriesScreen extends StatelessWidget {
+class MediaCategoriesScreen extends StatefulWidget {
   final _MediaType type;
   final List<CategoryModel> categories;
   const MediaCategoriesScreen({super.key, required this.type, required this.categories});
 
   @override
+  State<MediaCategoriesScreen> createState() => _MediaCategoriesScreenState();
+}
+
+class _MediaCategoriesScreenState extends State<MediaCategoriesScreen> {
+  String _query = '';
+
+  @override
   Widget build(BuildContext context) {
+    final type = widget.type;
+    final categories = widget.categories
+        .where((category) => matchesSearchQuery(category.title, _query))
+        .toList();
     return Scaffold(
       appBar: AppBar(title: Text(type.title)),
-      body: categories.isEmpty
+      body: Column(
+        children: [
+          if (widget.categories.isNotEmpty)
+            SectionSearchField(onChanged: (value) => setState(() => _query = value)),
+          Expanded(
+            child: categories.isEmpty
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(type.icon, size: 42, color: Colors.white38),
                   const SizedBox(height: 10),
-                  Text('لا توجد أقسام في ${type.title} حالياً'),
+                  Text(widget.categories.isEmpty
+                      ? 'لا توجد أقسام في ${type.title} حالياً'
+                      : 'لا توجد نتائج مطابقة'),
                 ],
               ),
             )
@@ -88,7 +107,7 @@ class MediaCategoriesScreen extends StatelessWidget {
                 crossAxisCount: 2,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.05,
+                childAspectRatio: 0.9,
               ),
               itemCount: categories.length,
               itemBuilder: (context, index) {
@@ -111,7 +130,7 @@ class MediaCategoriesScreen extends StatelessWidget {
                           alignment: Alignment.bottomCenter,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(10, 22, 10, 12),
+                            padding: const EdgeInsets.fromLTRB(10, 28, 10, 12),
                             decoration: const BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
@@ -119,14 +138,18 @@ class MediaCategoriesScreen extends StatelessWidget {
                                 colors: [Colors.transparent, Colors.black87],
                               ),
                             ),
-                            child: Text(category.title,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700)),
+                            child: Tooltip(
+                              message: category.title,
+                              child: Text(category.title,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13.5,
+                                    height: 1.2,
+                                    fontWeight: FontWeight.w700)),
+                            ),
                           ),
                         ),
                       ],
@@ -135,12 +158,15 @@ class MediaCategoriesScreen extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _fallback(BuildContext context) => Container(
     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.16),
-    child: Icon(type.icon, size: 52, color: Theme.of(context).colorScheme.primary),
+    child: Icon(widget.type.icon, size: 52, color: Theme.of(context).colorScheme.primary),
   );
 }
 

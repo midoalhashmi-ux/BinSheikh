@@ -10,6 +10,7 @@ class ChannelModel {
   final String? logoUrl;
   final String? playerChannelKey;
   final int order;
+  final int viewCount;
 
   ChannelModel({
     required this.id,
@@ -21,6 +22,7 @@ class ChannelModel {
     this.logoUrl,
     this.playerChannelKey,
     this.order = 0,
+    this.viewCount = 0,
   });
 
   factory ChannelModel.fromMap(String id, Map<String, dynamic> map) {
@@ -42,6 +44,7 @@ class ChannelModel {
       logoUrl: map['logoUrl'],
       playerChannelKey: map['playerChannelKey'],
       order: (map['order'] as num?)?.toInt() ?? 0,
+      viewCount: (map['viewCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -21,8 +21,8 @@ class _HomeShellState extends State<HomeShell> {
 
   static const _tabs = [
     _TabInfo(title: 'النتائج', icon: Icons.scoreboard_outlined, activeIcon: Icons.scoreboard),
+    _TabInfo(title: 'أفلام/مسلسلات', icon: Icons.video_library_outlined, activeIcon: Icons.video_library),
     _TabInfo(title: 'القنوات', icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv),
-    _TabInfo(title: 'المحتوى', icon: Icons.video_library_outlined, activeIcon: Icons.video_library),
   ];
 
   @override
@@ -66,8 +66,8 @@ class _HomeShellState extends State<HomeShell> {
         index: _tabIndex,
         children: const [
           MatchesScreen(),
-          ChannelsHomeTab(),
           MediaHomeTab(),
+          ChannelsHomeTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

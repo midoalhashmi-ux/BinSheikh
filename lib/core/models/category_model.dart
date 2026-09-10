@@ -5,6 +5,7 @@ class CategoryModel {
   final String? iconUrl;
   final String? parentId;
   final String contentType;
+  final int viewCount;
 
   CategoryModel({
     required this.id,
@@ -13,6 +14,7 @@ class CategoryModel {
     this.iconUrl,
     this.parentId,
     this.contentType = 'channels',
+    this.viewCount = 0,
   });
 
   factory CategoryModel.fromMap(String id, Map<String, dynamic> map) {
@@ -25,6 +27,7 @@ class CategoryModel {
       iconUrl: map['iconUrl'],
       parentId: map['parentId'],
       contentType: (map['contentType'] ?? 'channels').toString(),
+      viewCount: (map['viewCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

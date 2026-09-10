@@ -53,4 +53,47 @@ class ContentService {
         .map((snap) => ChannelModel.fromMap(snap.id, snap.data()!))
         .toList();
   }
+
+  /// يجلب بيانات أقسام محددة بمعرّفاتها (تُستخدم لشاشة المفضلة — مسلسلات
+  /// وأنمي كاملة مُفضَّلة على مستوى القسم بدل حلقة واحدة).
+  static Future<List<CategoryModel>> fetchCategoriesByIds(
+      List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final futures = ids.map(
+      (id) => FirebaseFirestore.instance.collection('categories').doc(id).get(),
+    );
+    final snapshots = await Future.wait(futures);
+    return snapshots
+        .where((snap) => snap.exists && snap.data() != null)
+        .map((snap) => CategoryModel.fromMap(snap.id, snap.data()!))
+        .toList();
+  }
+
+  /// يسجّل مشاهدة (عدّاد بسيط) لكل من القناة/الحلقة وقسمها المباشر —
+  /// تُقرأ هذه العدّادات من لوحة التحكم لعرض إحصائيات "الأكثر مشاهدة".
+  /// غير حرجة أبداً: أي فشل (بدون إنترنت مثلاً) يُتجاهل بصمت ولا يجب أن
+  /// يعطّل فتح القناة نفسها.
+  static Future<void> recordView({
+    required String channelId,
+    String? categoryId,
+  }) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(
+        FirebaseFirestore.instance.collection('channels').doc(channelId),
+        {'viewCount': FieldValue.increment(1)},
+        SetOptions(merge: true),
+      );
+      if (categoryId != null && categoryId.isNotEmpty) {
+        batch.set(
+          FirebaseFirestore.instance.collection('categories').doc(categoryId),
+          {'viewCount': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
+      }
+      await batch.commit();
+    } catch (_) {
+      // إحصائيات غير حرجة — لا نعطّل تشغيل القناة لأجلها.
+    }
+  }
 }
