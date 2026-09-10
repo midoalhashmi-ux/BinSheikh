@@ -3,6 +3,7 @@ import '../../core/models/category_model.dart';
 import '../../core/models/channel_model.dart';
 import '../../core/services/content_service.dart';
 import '../../core/services/favorites_service.dart';
+import '../../widgets/rating_badge.dart';
 import '../channels/channel_card.dart';
 import '../channels/channels_screen.dart';
 
@@ -155,15 +156,24 @@ class _FavoriteCategoryTile extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Tooltip(
-                  message: category.title,
-                  child: Text(category.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Tooltip(
+                      message: category.title,
+                      child: Text(category.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                    ),
+                    if (category.rating != null) ...[
+                      const SizedBox(height: 4),
+                      RatingBadge(rating: category.rating!),
+                    ],
+                  ],
                 ),
               ),
               IconButton(

@@ -3,6 +3,7 @@ import '../../core/models/category_model.dart';
 import '../../core/models/channel_model.dart';
 import '../../core/services/content_service.dart';
 import '../../core/services/favorites_service.dart';
+import '../../widgets/rating_badge.dart';
 import '../../widgets/section_search_field.dart';
 import 'channel_card.dart';
 
@@ -97,6 +98,12 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
                                       .colorScheme
                                       .primary
                                       .withValues(alpha: 0.15),
+                                ),
+                              if (child.rating != null)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: RatingBadge(rating: child.rating!),
                                 ),
                               Positioned(
                                 left: 0,

@@ -1092,6 +1092,70 @@ async function handleSiteImport(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// التقييمات — POST /ratings/search
+// يبحث عن نسبة تقييم لعنوان قسم (أفلام/مسلسلات عبر TMDB، أنمي عبر Jikan/
+// MyAnimeList) ويرجّعها بدون كتابة أي شيء لـ Firestore — لوحة التحكم
+// (ratings.js) هي من تكتب النتيجة، بنفس اتصالها المصادق عليه أصلاً.
+// أي فشل بالمطابقة يرجّع rating: null بدل تخمين رقم خاطئ.
+// ---------------------------------------------------------------------------
+async function ratingsSearchJikan(title) {
+  const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(title)}&limit=1&sfw=true`;
+  const response = await fetch(url);
+  if (!response.ok) return { rating: null, source: null };
+  const data = await response.json();
+  const item = data && Array.isArray(data.data) ? data.data[0] : null;
+  const score = item && typeof item.score === 'number' ? item.score : null;
+  if (score == null) return { rating: null, source: null, matchedTitle: item ? item.title : null };
+  return { rating: Math.round(score * 10), source: 'jikan', matchedTitle: item.title };
+}
+
+async function ratingsSearchTmdb(title, mediaType, apiKey) {
+  const url = `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(title)}&api_key=${apiKey}&language=ar`;
+  const response = await fetch(url);
+  if (!response.ok) return { rating: null, source: null };
+  const data = await response.json();
+  const item = data && Array.isArray(data.results) ? data.results[0] : null;
+  const score = item && typeof item.vote_average === 'number' ? item.vote_average : null;
+  const voteCount = (item && item.vote_count) || 0;
+  // نتجاهل تقييمات بعدد أصوات ضئيل جداً — قد تكون تطابقاً خاطئاً لعنوان
+  // مشابه وليس نفس العمل فعلياً، أفضل نتركه بدون تقييم بدل رقم مضلِّل.
+  if (score == null || voteCount < 5) {
+    return { rating: null, source: null, matchedTitle: item ? (item.title || item.name) : null };
+  }
+  return { rating: Math.round(score * 10), source: 'tmdb', matchedTitle: item.title || item.name };
+}
+
+async function handleRatingsSearch(request, env) {
+  const adminKey = request.headers.get('x-admin-key');
+  if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
+    return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
+  }
+  let body;
+  try { body = await request.json(); } catch (_) { return json({ error: 'invalid-argument', message: 'body غير صالح.' }, 400); }
+  const title = String((body && body.title) || '').trim();
+  const contentType = body && body.contentType;
+  if (!title) return json({ error: 'invalid-argument', message: 'العنوان مطلوب.' }, 400);
+
+  try {
+    if (contentType === 'anime') {
+      const result = await ratingsSearchJikan(title);
+      return json({ ok: true, ...result });
+    }
+    if (contentType === 'movies' || contentType === 'series') {
+      if (!env.TMDB_API_KEY) {
+        return json({ ok: true, rating: null, source: null, reason: 'tmdb-not-configured' });
+      }
+      const mediaType = contentType === 'movies' ? 'movie' : 'tv';
+      const result = await ratingsSearchTmdb(title, mediaType, env.TMDB_API_KEY);
+      return json({ ok: true, ...result });
+    }
+    return json({ error: 'invalid-argument', message: 'نوع محتوى غير مدعوم للتقييمات.' }, 400);
+  } catch (error) {
+    return json({ error: 'upstream-error', message: String(error && error.message || error) }, 502);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // التوجيه (Routing)
 // ---------------------------------------------------------------------------
 export default {
@@ -1120,6 +1184,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/import/site') {
       return handleSiteImport(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/ratings/search') {
+      return handleRatingsSearch(request, env);
     }
 
     const hlsMatch = request.method === 'GET' && url.pathname.match(/^\/hls\/([^/]+)\/(.+)$/);

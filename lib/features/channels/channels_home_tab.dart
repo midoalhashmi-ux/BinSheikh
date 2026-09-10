@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/content_service.dart';
+import '../../widgets/rating_badge.dart';
 import '../../widgets/section_search_field.dart';
 import 'channels_screen.dart';
 
@@ -61,6 +62,12 @@ class _ChannelsHomeTabState extends State<ChannelsHomeTab> {
                           fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context))
                     else
                       _fallback(context),
+                    if (category.rating != null)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: RatingBadge(rating: category.rating!),
+                      ),
                     Positioned(
                       left: 0,
                       right: 0,

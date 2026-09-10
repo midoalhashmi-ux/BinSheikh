@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/category_model.dart';
 import '../../core/services/content_service.dart';
+import '../../widgets/rating_badge.dart';
 import '../../widgets/section_search_field.dart';
 import '../channels/channels_screen.dart';
 
@@ -126,6 +127,12 @@ class _MediaCategoriesScreenState extends State<MediaCategoriesScreen> {
                             errorBuilder: (_, __, ___) => _fallback(context))
                         else
                           _fallback(context),
+                        if (category.rating != null)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: RatingBadge(rating: category.rating!),
+                          ),
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: Container(
