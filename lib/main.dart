@@ -73,18 +73,41 @@ class _SplashApp extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.live_tv, size: 72, color: accent),
-                    const SizedBox(height: 16),
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Icon(Icons.play_arrow_rounded, size: 44, color: accent),
+                    ),
+                    const SizedBox(height: 22),
                     const Text(
                       'BinSheikh',
                       style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    const CircularProgressIndicator(),
+                    const SizedBox(height: 6),
+                    Text(
+                      'مباريات، أفلام ومسلسلات في مكان واحد',
+                      style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.55)),
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: 120,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                          valueColor: AlwaysStoppedAnimation(accent),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

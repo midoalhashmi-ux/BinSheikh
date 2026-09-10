@@ -245,16 +245,20 @@ class _FavoriteShowHeader extends StatelessWidget {
         valueListenable: FavoritesService.favoriteCategories,
         builder: (context, favoriteIds, _) {
           final isFavorite = favoriteIds.contains(category.id);
+          final label = switch (category.contentType) {
+            'movies' => 'هذا الفيلم',
+            'anime' => 'هذا الأنمي',
+            _ => 'هذا المسلسل',
+          };
           return ListTile(
             leading: Icon(
               isFavorite ? Icons.favorite : Icons.favorite_border,
               color: isFavorite ? Colors.redAccent : Colors.white60,
             ),
             title: Text(
-              isFavorite ? 'مُضاف للمفضلة' : 'أضف هذا المسلسل للمفضلة',
+              isFavorite ? 'مُضاف للمفضلة' : 'أضف $label للمفضلة',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            subtitle: const Text('يُضاف القسم كاملاً بدل حلقة واحدة'),
             onTap: () => FavoritesService.toggleFavoriteCategory(category.id),
             trailing: Switch(
               value: isFavorite,

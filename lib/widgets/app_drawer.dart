@@ -27,25 +27,14 @@ class AppDrawer extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.live_tv_rounded, color: accent, size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Text(
-                      'BinSheikh',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
+              child: Text(
+                'BinSheikh',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                  color: accent,
+                ),
               ),
             ),
             const Divider(height: 1),

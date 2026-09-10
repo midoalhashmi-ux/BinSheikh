@@ -30,36 +30,35 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.live_tv_rounded, color: Theme.of(context).colorScheme.primary, size: 22),
-            const SizedBox(width: 8),
-            const Text('BinSheikh'),
-          ],
-        ),
-        // زر القائمة الجانبية (كان يظهر تلقائياً بمكان "leading" — يمين
-        // الشاشة في العربية) انتقل الآن ليكون action (يسار الشاشة)، وزر
-        // المفضلة انتقل من action إلى leading (يمين الشاشة) — عكس الترتيب
-        // السابق تماماً كما طُلب.
-        leading: IconButton(
-          icon: const Icon(Icons.favorite),
-          tooltip: 'المفضلة',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+        title: Text(
+          'BinSheikh',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 21,
+            letterSpacing: 0.3,
+            color: Theme.of(context).colorScheme.primary,
           ),
+        ),
+        // زر القائمة الجانبية في leading (يمين الشاشة بالعربية)، وزر
+        // المفضلة في actions (يسار الشاشة) — القائمة تفتح drawer من نفس
+        // جهة زرّها بدل الجهة المقابلة.
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          tooltip: 'القائمة',
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.menu),
-            tooltip: 'القائمة',
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            icon: const Icon(Icons.favorite),
+            tooltip: 'المفضلة',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            ),
           ),
         ],
       ),
-      // endDrawer (بدل drawer) يفتح من نفس جهة زر القائمة (الآن بـ actions،
-      // أي يسار الشاشة بالعربية) بدل الجهة المقابلة.
-      endDrawer: const AppDrawer(),
+      // drawer يفتح من نفس جهة زر القائمة (leading، يمين الشاشة بالعربية).
+      drawer: const AppDrawer(),
       // IndexedStack يحافظ على حالة كل تبويب (مثلاً موضع اليوم المختار في
       // شاشة النتائج) عند التنقل بينهما بدل إعادة بنائه من الصفر.
       body: IndexedStack(
