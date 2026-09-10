@@ -850,12 +850,30 @@ function siteLinks(html, base) {
   return out;
 }
 
-function siteNextPage(links) {
+// A numbered pager (1, 2, 3 ... 20) commonly repeats the same offset/page
+// links in every direction (prev arrow, a disabled "current page" item, a
+// jump-to-last-page link) — taking "whichever matching link happens to come
+// last in the HTML" previously grabbed the current page's own link back
+// instead of the real next one, silently truncating pagination after page 2
+// on a real site. Comparing page numbers against the current page fixes it.
+function siteNextPage(links, pageUrl) {
   for (const link of links) {
     if (/\bnext\b|التالي|الصفحة التالية|older posts/i.test(link.text)) return link.url;
   }
-  const candidates = links.filter(x => /[?&](offset|page)=\d+/i.test(x.url));
-  return candidates.length ? candidates[candidates.length - 1].url : '';
+  let currentPage = 1;
+  try {
+    const u = new URL(pageUrl);
+    const raw = u.searchParams.get('offset') || u.searchParams.get('page');
+    if (raw && /^\d+$/.test(raw)) currentPage = Number(raw);
+  } catch (_) { /* pageUrl missing/invalid — treat as page 1 */ }
+  let best = null;
+  for (const link of links) {
+    const m = link.url.match(/[?&](?:offset|page)=(\d+)/i);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (n > currentPage && (!best || n < best.n)) best = { n, url: link.url };
+  }
+  return best ? best.url : '';
 }
 
 function siteLooksLikeEpisode(text, url) {
@@ -1013,7 +1031,7 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
     thumbnail: siteExtractThumbnail(html, pageUrl) || fallbackThumbnail || null,
     episodes,
     seasons,
-    nextPageUrl: siteNextPage(links) || '',
+    nextPageUrl: siteNextPage(links, pageUrl) || '',
   };
 }
 
@@ -1050,7 +1068,7 @@ async function handleSiteImport(request, env) {
       if (!url) return json({ error: 'invalid-argument', message: 'رابط صفحة القائمة غير صالح.' }, 400);
       const html = await siteFetchHtml(url);
       const parsed = siteParseCatalog(html, url);
-      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).origin)));
+      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).origin)), url);
       return json({ ok: true, series: parsed, nextPageUrl: nextPageUrl || null });
     }
     if (action === 'series') {
