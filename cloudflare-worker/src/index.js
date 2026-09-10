@@ -1009,6 +1009,25 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
   };
 }
 
+// Some sites render an episode "info" page with no playable embed at all —
+// the real player lives one click deeper, at the same URL plus a "watch"
+// segment (e.g. ".../episode-8/" -> ".../episode-8/watch"), reached through
+// a single "شاهد الآن/Watch now"-style link. Detected once per site from a
+// sample episode (see resolveEpisode below) rather than assumed, so sites
+// where the episode link is already directly playable are left alone.
+function siteFindWatchLink(html, pageUrl) {
+  const origin = new URL(pageUrl).origin;
+  const base = siteStripSlash(pageUrl);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, origin) && l.url !== pageUrl);
+  for (const link of links) {
+    if (siteStripSlash(link.url) === `${base}/watch`) return link.url;
+  }
+  for (const link of links) {
+    if (/مشاهدة|شاهد|\bwatch\b/i.test(link.text)) return link.url;
+  }
+  return '';
+}
+
 async function handleSiteImport(request, env) {
   const adminKey = request.headers.get('x-admin-key');
   if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
@@ -1032,6 +1051,13 @@ async function handleSiteImport(request, env) {
       const html = await siteFetchHtml(url);
       const parsed = siteParseSeries(html, url, body.fallbackTitle || '', body.fallbackThumbnail || '');
       return json({ ok: true, ...parsed });
+    }
+    if (action === 'resolveEpisode') {
+      const url = siteAbsUrl(body.url);
+      if (!url) return json({ error: 'invalid-argument', message: 'رابط الحلقة مطلوب.' }, 400);
+      const html = await siteFetchHtml(url);
+      const watchUrl = siteFindWatchLink(html, url);
+      return json({ ok: true, watchUrl: watchUrl || null });
     }
     return json({ error: 'invalid-argument', message: 'إجراء استيراد غير معروف.' }, 400);
   } catch (error) {
