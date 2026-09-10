@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/services/content_service.dart';
-import '../../widgets/rating_badge.dart';
 import '../../widgets/section_search_field.dart';
 import 'channels_screen.dart';
 
@@ -26,9 +25,14 @@ class _ChannelsHomeTabState extends State<ChannelsHomeTab> {
               child: Text('تعذر تحميل الأقسام. تحقق من اتصال الإنترنت وقواعد Firebase.'));
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final allCategories = snapshot.data!;
-        if (allCategories.isEmpty) return const Center(child: Text('لا توجد أقسام بعد'));
-        final categories = allCategories
+        // تبويب "القنوات" يعرض فقط أقسام القنوات المباشرة — أقسام
+        // الأفلام/المسلسلات/الأنمي تظهر حصراً بتبويب "أفلام/مسلسلات"
+        // (كانت تظهر بالاثنين معاً بسبب غياب هذا الفلتر).
+        final channelCategories = snapshot.data!
+            .where((category) => category.contentType == 'channels')
+            .toList();
+        if (channelCategories.isEmpty) return const Center(child: Text('لا توجد أقسام بعد'));
+        final categories = channelCategories
             .where((category) => matchesSearchQuery(category.title, _query))
             .toList();
         return Column(
@@ -62,12 +66,6 @@ class _ChannelsHomeTabState extends State<ChannelsHomeTab> {
                           fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context))
                     else
                       _fallback(context),
-                    if (category.rating != null)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: RatingBadge(rating: category.rating!),
-                      ),
                     Positioned(
                       left: 0,
                       right: 0,
