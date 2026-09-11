@@ -33,31 +33,36 @@ class MediaHomeTab extends StatelessWidget {
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final categories = snapshot.data!;
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-          children: [
-            Text('المحتوى', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text('اختر القسم الذي ترغب بمشاهدته', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 18),
-            for (final type in _types) ...[
-              _MediaCard(
-                type: type,
-                categoryCount: categories.where((c) => c.contentType == type.key).length,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MediaCategoriesScreen(
-                        type: type,
-                        categories: categories.where((c) => c.contentType == type.key).toList(),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('المحتوى', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('اختر القسم الذي ترغب بمشاهدته', style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 18),
+              for (var i = 0; i < _types.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                Expanded(
+                  child: _MediaCard(
+                    type: _types[i],
+                    categoryCount: categories.where((c) => c.contentType == _types[i].key).length,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MediaCategoriesScreen(
+                            type: _types[i],
+                            categories: categories.where((c) => c.contentType == _types[i].key).toList(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
