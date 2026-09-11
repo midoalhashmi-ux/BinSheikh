@@ -855,16 +855,31 @@ function siteSignificantTokens(text) {
   return tokens.filter(t => t.length >= 3 && !SITE_STOPWORDS.has(t));
 }
 
-// A season/episode candidate must share at least one identifying word with
-// the show it supposedly belongs to. Without this, a sidebar "latest
-// episodes across the site" widget — common on these WordPress themes and
-// present on nearly every page — gets misread as this show's own seasons,
-// mixing in unrelated shows. If we have no tokens to compare against, stay
-// permissive rather than silently discarding everything.
+// A season/episode candidate must share identifying words with the show it
+// supposedly belongs to. Without this, a sidebar "latest episodes across the
+// site" widget — common on these WordPress themes and present on nearly
+// every page — gets misread as this show's own seasons, mixing in unrelated
+// shows. If we have no tokens to compare against, stay permissive rather
+// than silently discarding everything.
+//
+// A single shared token was too easy to hit by coincidence once real
+// multi-word titles are involved — two unrelated shows sharing one common
+// word (e.g. "king"/"love") is common, and SITE_STOPWORDS only filters
+// meta-words (season/episode/watch...), not ordinary title words. Confirmed
+// in production: one unrelated show's episode leaked into another's import
+// via a "related shows" widget that happened to share exactly one token
+// with the show's title. A genuine match (the same show's own season/
+// episode links, whose URL slug is normally the show's title verbatim)
+// shares most of its words, not just one — so when the candidate itself
+// carries 2+ significant tokens, require at least 2 of them to match;
+// single-token candidates (nothing more precise to ask for) keep the
+// original 1-token rule.
 function siteBelongsToShow(candidateText, candidateUrl, showTokens) {
   if (!showTokens.length) return true;
   const tokens = siteSignificantTokens(`${candidateText} ${decodeURIComponent(candidateUrl)}`);
-  return tokens.some(t => showTokens.includes(t));
+  const matches = tokens.filter(t => showTokens.includes(t));
+  if (tokens.length >= 2) return matches.length >= 2;
+  return matches.length >= 1;
 }
 
 function siteLinks(html, base) {
