@@ -748,6 +748,18 @@ function siteSameOrigin(url, baseHostname) {
   try { return siteRegistrableDomain(new URL(url).hostname) === siteRegistrableDomain(baseHostname); } catch (_) { return false; }
 }
 
+// WordPress SEO plugins (Yoast/RankMath) and many themes inject a
+// site-wide default image — usually the site's own logo/icon, or a literal
+// "no image" placeholder graphic — whenever a post has no real
+// featured/poster image of its own. Left unfiltered, that shows up as the
+// *same* image stamped on every item whose real poster is missing or
+// broken, which reads to the user as "the site's logo instead of the
+// actual poster". Requested behavior: never substitute anything in that
+// case — leave the item without an image rather than showing the logo.
+function siteLooksLikeSiteLogo(url) {
+  return /(?:^|[\/_.-])(logo|favicon|site-icon|siteicon|no-?image|noimg|no-?photo|placeholder|default-(?:image|poster|thumb|thumbnail)|watermark)(?:[\/_.-]|$)/i.test(String(url || ''));
+}
+
 function siteImageFromTag(tag, base) {
   const attrs = String(tag || '');
   // "src" stays last on purpose: lazy-load scripts commonly leave a generic
@@ -760,14 +772,14 @@ function siteImageFromTag(tag, base) {
     const m = attrs.match(re);
     if (m) {
       const url = siteAbsUrl(m[1], base);
-      if (url && !/\.svg(?:$|\?)/i.test(url)) return url;
+      if (url && !/\.svg(?:$|\?)/i.test(url) && !siteLooksLikeSiteLogo(url)) return url;
     }
   }
   const srcset = attrs.match(/\bsrcset\s*=\s*["']([^"']+)["']/i);
   if (srcset) {
     const candidate = srcset[1].split(',').map(x => x.trim().split(/\s+/)[0]).find(Boolean);
     const url = siteAbsUrl(candidate, base);
-    if (url) return url;
+    if (url && !siteLooksLikeSiteLogo(url)) return url;
   }
   return '';
 }
@@ -786,7 +798,7 @@ function siteImageFrom(html, base) {
   const bg = String(html || '').match(/background(?:-image)?\s*:[^;"']*url\(\s*['"]?([^'")]+)['"]?\s*\)/i);
   if (bg) {
     const url = siteAbsUrl(bg[1], base);
-    if (url) return url;
+    if (url && !siteLooksLikeSiteLogo(url)) return url;
   }
   return '';
 }
@@ -809,18 +821,17 @@ function siteExtractTitle(html, fallback = '') {
   return siteText(fallback);
 }
 
-// Looks for a per-item thumbnail inside the anchor tag's own inner HTML first
-// (the usual case for a catalog grid: <a><img src="..."></a>), and only
-// falls back to the page-wide og:image when nothing is found there — using
-// the page-wide image for every catalog item was a real bug in the previous
-// RistoAnime-only version (every show got the same thumbnail).
-function siteExtractThumbnail(html, base) {
+// A show/season detail page's own og:image is usually its real poster on
+// these WordPress themes, so it's tried first; siteParseSeries below falls
+// back to the catalog card's own image (fallbackThumbnail, passed in from
+// the listing page) and then a body-wide image scan, skipping this entirely
+// when it's missing or looks like the site's own logo (siteLooksLikeSiteLogo)
+// instead of ever substituting it.
+function siteExtractOgImage(html, base) {
   const og = String(html || '').match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-  if (og) {
-    const url = siteAbsUrl(og[1], base);
-    if (url) return url;
-  }
-  return siteImageFrom(html, base);
+  if (!og) return '';
+  const url = siteAbsUrl(og[1], base);
+  return url && !siteLooksLikeSiteLogo(url) ? url : '';
 }
 
 // A catalog/series card usually wraps unrelated badges (genre, quality,
@@ -1072,7 +1083,7 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
   }
   return {
     title: ownTitle,
-    thumbnail: siteExtractThumbnail(html, pageUrl) || fallbackThumbnail || null,
+    thumbnail: siteExtractOgImage(html, pageUrl) || fallbackThumbnail || siteImageFrom(html, pageUrl) || null,
     episodes,
     seasons,
     nextPageUrl: siteNextPage(links, pageUrl) || '',
