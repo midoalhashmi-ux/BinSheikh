@@ -132,3 +132,4 @@ Firebase Blaze. الكود بـ `functions/index.js` (يتضمن `getStreamUrl` 
 | 5 | حقل ميت `_info` بـ`_UpdateGateState` | إزالته | نفس الكوميت |
 | 6 | تحقق المفتاح الإداري بالووركر بمقارنة نصية مباشرة (عرضة نظرياً لـtiming attack) بـ3 نقاط | توحيد عبر `isAdminAuthorized()`/`timingSafeEqual` | `4f5ea3a` |
 | 7 | `viewCount` تراكمي بلا بُعد زمني → لا فلترة تاريخية بإحصائيات لوحة التحكم | بنية `dailyViews` يومية (قواعد Firestore + كتابة `content_service.dart`) — ⚠️ قواعد Firestore منشورة فعلاً، لكن كود BinSheikh نفسه لم يُبنَ/يُنشر بعد | `0354bde` |
+| 8 | استيراد المواقع (`site-importer.js`/الووركر): حلقة من أنمي مختلف تسربت لاستيراد أنمي آخر — `siteBelongsToShow` كان يكتفي بكلمة مشتركة واحدة فقط (كافية للتطابق العرضي بين عملين مختلفين) | يتطلب الآن كلمتين متطابقتين على الأقل لو كان للمرشّح كلمتان دالتان فأكثر | `6c2c560` — ⚠️ يحتاج `npx wrangler deploy` من `cloudflare-worker/` |
