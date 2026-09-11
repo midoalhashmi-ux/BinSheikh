@@ -78,6 +78,14 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // سجل المواقع المعروفة لاستيراد لوحة التحكم (site-importer.js) — كل
+    // مستند: {domain, contentType, label}. يُستخدم لتحديد نوع المحتوى
+    // (أنمي/مسلسلات/أفلام) بيقين بدل التخمين لأي موقع أُضيف هنا مسبقاً.
+    // إداري بالكامل — لا يقرأه تطبيق المحتوى ولا المشغل إطلاقاً.
+    match /importSites/{domain} {
+      allow read, write: if request.auth != null;
+    }
+
     // مباريات اليوم المخزّنة من Cloud Function (syncMatchesHourly /
     // refreshMatches) بعد جلبها من API-Football. القراءة مفتوحة لتطبيق
     // المحتوى بدون تسجيل دخول، والكتابة ممنوعة تماماً من أي عميل — لا
