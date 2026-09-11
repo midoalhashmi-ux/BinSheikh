@@ -73,21 +73,42 @@ class ContentService {
   /// تُقرأ هذه العدّادات من لوحة التحكم لعرض إحصائيات "الأكثر مشاهدة".
   /// غير حرجة أبداً: أي فشل (بدون إنترنت مثلاً) يُتجاهل بصمت ولا يجب أن
   /// يعطّل فتح القناة نفسها.
+  ///
+  /// بجانب العدّاد التراكمي (viewCount)، تُكتب بنفس الدفعة زيادة على
+  /// مستند يومي منفصل (dailyViews/{YYYY-MM-DD} بتوقيت UTC، لتطابق كيفية
+  /// حساب لوحة التحكم لمدى التواريخ) — يسمح هذا بفلترة إحصائيات لوحة
+  /// التحكم بمدى زمني (اليوم/آخر أسبوع/مدى مخصص)، وهو غير ممكن من
+  /// viewCount وحده لأنه بلا أي بُعد زمني.
   static Future<void> recordView({
     required String channelId,
     String? categoryId,
   }) async {
     try {
+      final today = DateTime.now().toUtc();
+      final dateId =
+          '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
       final batch = FirebaseFirestore.instance.batch();
+      final channelRef = FirebaseFirestore.instance.collection('channels').doc(channelId);
       batch.set(
-        FirebaseFirestore.instance.collection('channels').doc(channelId),
+        channelRef,
         {'viewCount': FieldValue.increment(1)},
         SetOptions(merge: true),
       );
+      batch.set(
+        channelRef.collection('dailyViews').doc(dateId),
+        {'count': FieldValue.increment(1)},
+        SetOptions(merge: true),
+      );
       if (categoryId != null && categoryId.isNotEmpty) {
+        final categoryRef = FirebaseFirestore.instance.collection('categories').doc(categoryId);
         batch.set(
-          FirebaseFirestore.instance.collection('categories').doc(categoryId),
+          categoryRef,
           {'viewCount': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
+        batch.set(
+          categoryRef.collection('dailyViews').doc(dateId),
+          {'count': FieldValue.increment(1)},
           SetOptions(merge: true),
         );
       }

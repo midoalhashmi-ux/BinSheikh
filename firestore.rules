@@ -13,6 +13,24 @@ service cloud.firestore {
         request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1
       );
       allow create, delete: if request.auth != null;
+
+      // عدّاد يومي (لكل تاريخ مستند مستقل: dailyViews/{YYYY-MM-DD})
+      // لدعم فلترة الإحصائيات بمدى زمني (اليوم/آخر أسبوع/مدى مخصص) بلوحة
+      // التحكم — عدّاد viewCount أعلاه تراكمي بلا بُعد زمني إطلاقاً. أول
+      // مشاهدة بيوم جديد "تُنشئ" المستند (create)، وما بعدها "تُحدّثه"
+      // (update) — بنفس شرط الزيادة بالضبط +1 المستخدم أعلاه.
+      match /dailyViews/{dateId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null || (
+          request.resource.data.keys().hasOnly(['count']) &&
+          request.resource.data.count == 1
+        );
+        allow update: if request.auth != null || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count']) &&
+          request.resource.data.count == resource.data.get('count', 0) + 1
+        );
+        allow delete: if request.auth != null;
+      }
     }
 
     match /channels/{channelId} {
@@ -22,6 +40,19 @@ service cloud.firestore {
         request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1
       );
       allow create, delete: if request.auth != null;
+
+      match /dailyViews/{dateId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null || (
+          request.resource.data.keys().hasOnly(['count']) &&
+          request.resource.data.count == 1
+        );
+        allow update: if request.auth != null || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count']) &&
+          request.resource.data.count == resource.data.get('count', 0) + 1
+        );
+        allow delete: if request.auth != null;
+      }
     }
 
     match /settings/{settingId} {
