@@ -743,9 +743,31 @@ function siteRegistrableDomain(hostname) {
 // a real site during this session, where strict origin-matching silently
 // dropped every real episode link and a fallback heuristic grabbed an
 // unrelated nav link instead). Same registrable domain is treated as "the
-// same site" instead of requiring an exact origin match.
-function siteSameOrigin(url, baseHostname) {
-  try { return siteRegistrableDomain(new URL(url).hostname) === siteRegistrableDomain(baseHostname); } catch (_) { return false; }
+// same site" instead of requiring an exact origin match. `baseHostnames`
+// may be a single hostname or a list (e.g. the fetched mirror domain plus
+// its <link rel="canonical"> domain — see siteExtractCanonicalHost) so a
+// link matching any one of them counts as belonging to the site.
+function siteSameOrigin(url, baseHostnames) {
+  const hosts = Array.isArray(baseHostnames) ? baseHostnames : [baseHostnames];
+  try {
+    const target = siteRegistrableDomain(new URL(url).hostname);
+    return hosts.some(h => h && target === siteRegistrableDomain(h));
+  } catch (_) { return false; }
+}
+
+// Confirmed on a real site during this session (a "mirror" domain, e.g.
+// web5.example.fan, that serves a WordPress site whose actual content
+// links all point to its canonical domain, e.g. example.io): every real
+// catalog/episode link failed the same-origin check above because it
+// pointed at a completely different registrable domain than the page was
+// fetched from, silently discarding almost the entire catalog. WordPress
+// (and most SEO plugins) always emits <link rel="canonical"> pointing at
+// the site's real domain, so treating that domain as same-origin too
+// recovers these links without loosening the check for unrelated sites.
+function siteExtractCanonicalHost(html) {
+  const m = String(html || '').match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
+  if (!m) return '';
+  try { return new URL(m[1]).hostname; } catch (_) { return ''; }
 }
 
 // WordPress SEO plugins (Yoast/RankMath) and many themes inject a
@@ -991,8 +1013,9 @@ function siteStripSlash(url) { return String(url || '').replace(/\/$/, ''); }
 
 function siteParseCatalog(html, base) {
   const baseHostname = new URL(base).hostname;
+  const canonicalHost = siteExtractCanonicalHost(html);
   const basePath = siteStripSlash(base);
-  const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
+  const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, [baseHostname, canonicalHost]) && siteStripSlash(l.url) !== basePath);
   const candidates = links.filter(l => l.text && !SITE_JUNK_PATH.test(new URL(l.url).pathname));
 
   // Group by first path segment (e.g. "/anime/one-piece" -> "anime") and use
@@ -1027,8 +1050,9 @@ function siteParseCatalog(html, base) {
 
 function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = '') {
   const baseHostname = new URL(pageUrl).hostname;
+  const canonicalHost = siteExtractCanonicalHost(html);
   const basePath = siteStripSlash(pageUrl);
-  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, [baseHostname, canonicalHost]) && siteStripSlash(l.url) !== basePath);
   const ownTitle = siteExtractTitle(html, fallbackTitle);
   const showTokens = siteSignificantTokens(`${fallbackTitle} ${ownTitle} ${decodeURIComponent(new URL(pageUrl).pathname)}`);
   const episodes = [];
@@ -1098,8 +1122,9 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
 // where the episode link is already directly playable are left alone.
 function siteFindWatchLink(html, pageUrl) {
   const baseHostname = new URL(pageUrl).hostname;
+  const canonicalHost = siteExtractCanonicalHost(html);
   const base = siteStripSlash(pageUrl);
-  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, baseHostname) && l.url !== pageUrl);
+  const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, [baseHostname, canonicalHost]) && l.url !== pageUrl);
   for (const link of links) {
     if (siteStripSlash(link.url) === `${base}/watch`) return link.url;
   }
@@ -1122,7 +1147,7 @@ async function handleSiteImport(request, env) {
       if (!url) return json({ error: 'invalid-argument', message: 'رابط صفحة القائمة غير صالح.' }, 400);
       const html = await siteFetchHtml(url);
       const parsed = siteParseCatalog(html, url);
-      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, new URL(url).hostname)), url);
+      const nextPageUrl = siteNextPage(siteLinks(html, url).filter(l => siteSameOrigin(l.url, [new URL(url).hostname, siteExtractCanonicalHost(html)])), url);
       return json({ ok: true, series: parsed, nextPageUrl: nextPageUrl || null });
     }
     if (action === 'series') {
