@@ -27,7 +27,7 @@ class PlayerService {
 
   static Future<void> openStore(PlayerSettings settings) async {
     final url = settings.storeUrl;
-    if (url == null || url.isEmpty) return;
+    if (url.isEmpty) return;
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }

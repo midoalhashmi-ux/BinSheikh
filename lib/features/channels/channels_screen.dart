@@ -33,17 +33,17 @@ class _ChannelsScreenState extends State<ChannelsScreen> {
               stream: ContentService.watchChildCategories(widget.category.id),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
+                  return const Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(24),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.wifi_off_rounded, size: 42, color: Colors.white38),
-                          const SizedBox(height: 10),
+                          Icon(Icons.wifi_off_rounded, size: 42, color: Colors.white38),
+                          SizedBox(height: 10),
                           Text('تعذر تحميل الأقسام الفرعية.\nتحقق من اتصال الإنترنت.',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white70)),
+                            style: TextStyle(color: Colors.white70)),
                         ],
                       ),
                     ),
@@ -199,10 +199,10 @@ class _ChannelsList extends StatelessWidget {
         }
         final allChannels = snapshot.data!;
         if (allChannels.isEmpty) {
-          return Center(
+          return const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.live_tv_outlined, size: 42, color: Colors.white38),
                 SizedBox(height: 10),
                 Text('لا توجد قنوات بعد في هذا القسم'),

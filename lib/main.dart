@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/services/favorites_service.dart';
@@ -11,9 +15,28 @@ import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'theme/dynamic_theme_service.dart';
 
+// قبل هذا لم يكن هناك أي التقاط عام للأخطاء في هذا التطبيق: أي استثناء
+// خارج مناطق try/catch المحلية كان يُسقط العزل (isolate) بصمت تاماً بدون
+// أي أثر قابل للتشخيص. هذا لا يضيف اعتماداً جديداً (لا Crashlytics) —
+// فقط يطبع الخطأ الكامل مع تتبّع المكدس إلى console الجهاز (adb logcat /
+// flutter run) بدل فقدانه بصمت.
+void _logUncaughtError(Object error, StackTrace stack) {
+  debugPrint('UNCAUGHT_ERROR: $error\n$stack');
+}
+
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _BootApp());
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      _logUncaughtError(details.exception, details.stack ?? StackTrace.current);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      _logUncaughtError(error, stack);
+      return true;
+    };
+    runApp(const _BootApp());
+  }, _logUncaughtError);
 }
 
 class _BootApp extends StatefulWidget {
@@ -170,7 +193,6 @@ class _UpdateGate extends StatefulWidget {
 }
 
 class _UpdateGateState extends State<_UpdateGate> {
-  AppUpdateInfo? _info;
   bool _busy = true;
 
   @override
@@ -183,12 +205,11 @@ class _UpdateGateState extends State<_UpdateGate> {
     final info = await AppUpdateService.fetchUpdateInfo();
     if (!mounted) return;
     setState(() {
-      _info = info;
       _busy = false;
     });
 
     if (info.forceUpdate && info.minVersion != null && info.minVersion!.isNotEmpty) {
-      final current = const String.fromEnvironment('APP_VERSION', defaultValue: '0.0.0');
+      const current = String.fromEnvironment('APP_VERSION', defaultValue: '0.0.0');
       final currentParts = current.split('.').map(int.tryParse).toList();
       final minParts = info.minVersion!.split('.').map(int.tryParse).toList();
 

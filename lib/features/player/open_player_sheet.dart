@@ -46,7 +46,7 @@ Future<void> openExternalPlayerSheet(
             style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
           ),
           const SizedBox(height: 20),
-          if (settings.storeUrl != null && settings.storeUrl!.isNotEmpty)
+          if (settings.storeUrl.isNotEmpty)
             FilledButton.icon(
               onPressed: () => PlayerService.openStore(settings),
               icon: const Icon(Icons.download),

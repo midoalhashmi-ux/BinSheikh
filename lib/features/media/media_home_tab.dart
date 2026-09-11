@@ -47,7 +47,7 @@ class MediaHomeTab extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => MediaCategoriesScreen(
+                      builder: (_) => _MediaCategoriesScreen(
                         type: type,
                         categories: categories.where((c) => c.contentType == type.key).toList(),
                       ),
@@ -64,16 +64,16 @@ class MediaHomeTab extends StatelessWidget {
   }
 }
 
-class MediaCategoriesScreen extends StatefulWidget {
+class _MediaCategoriesScreen extends StatefulWidget {
   final _MediaType type;
   final List<CategoryModel> categories;
-  const MediaCategoriesScreen({super.key, required this.type, required this.categories});
+  const _MediaCategoriesScreen({required this.type, required this.categories});
 
   @override
-  State<MediaCategoriesScreen> createState() => _MediaCategoriesScreenState();
+  State<_MediaCategoriesScreen> createState() => _MediaCategoriesScreenState();
 }
 
-class _MediaCategoriesScreenState extends State<MediaCategoriesScreen> {
+class _MediaCategoriesScreenState extends State<_MediaCategoriesScreen> {
   String _query = '';
 
   @override

@@ -5,6 +5,7 @@ import {
   verifyHlsToken,
   buildHlsPlaybackUrl,
   rewriteHlsPlaylist,
+  timingSafeEqual,
 } from './hls.js';
 
 // ============================================================================
@@ -24,6 +25,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
 };
+
+// مقارنة مفتاح الأدمن بوقت ثابت (راجع timingSafeEqual في hls.js) بدل
+// مقارنة `!==` العادية المستخدمة سابقاً بكل نقاط التحقق الثلاث أدناه.
+function isAdminAuthorized(request, env) {
+  const adminKey = request.headers.get('x-admin-key') || '';
+  return Boolean(env.ADMIN_SYNC_SECRET) && timingSafeEqual(adminKey, env.ADMIN_SYNC_SECRET);
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -450,8 +458,7 @@ async function runScheduledSync(env) {
 }
 
 async function handleRefreshMatches(request, env) {
-  const adminKey = request.headers.get('x-admin-key');
-  if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
+  if (!isAdminAuthorized(request, env)) {
     return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
   }
 
@@ -1077,8 +1084,7 @@ function siteFindWatchLink(html, pageUrl) {
 }
 
 async function handleSiteImport(request, env) {
-  const adminKey = request.headers.get('x-admin-key');
-  if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
+  if (!isAdminAuthorized(request, env)) {
     return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
   }
   let body;
@@ -1148,8 +1154,7 @@ async function ratingsSearchTmdb(title, mediaType, apiKey) {
 }
 
 async function handleRatingsSearch(request, env) {
-  const adminKey = request.headers.get('x-admin-key');
-  if (!env.ADMIN_SYNC_SECRET || adminKey !== env.ADMIN_SYNC_SECRET) {
+  if (!isAdminAuthorized(request, env)) {
     return json({ error: 'permission-denied', message: 'غير مصرح.' }, 403);
   }
   let body;

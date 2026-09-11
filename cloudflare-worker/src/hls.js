@@ -6,6 +6,18 @@
 
 export const HLS_TOKEN_TTL_SECONDS = 240; // صلاحية كل توكن: 4 دقائق
 
+// مقارنة نصّين بوقت ثابت (تفادي timing attacks) — يُعاد استخدامها أيضاً في
+// index.js للتحقق من مفتاح الأدمن (ADMIN_SYNC_SECRET)، بدل مقارنة `!==`
+// العادية التي كانت تُسرّب معلومة توقيت عن مدى تطابق البادئة.
+export function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function hmacHex(secret, message) {
   const key = await crypto.subtle.importKey(
       'raw',
@@ -22,15 +34,11 @@ export async function signHlsToken(env, channelId, exp) {
   return hmacHex(env.HLS_TOKEN_SECRET, `${channelId}:${exp}`);
 }
 
-// مقارنة بوقت ثابت لتفادي timing attacks
 export async function verifyHlsToken(env, channelId, exp, sig) {
   if (!sig || !exp) return false;
   if (Date.now() / 1000 > Number(exp)) return false;
   const expected = await hmacHex(env.HLS_TOKEN_SECRET, `${channelId}:${exp}`);
-  if (expected.length !== sig.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
-  return diff === 0;
+  return timingSafeEqual(expected, sig);
 }
 
 export function buildHlsPlaybackUrl(workerOrigin, channelId, exp, sig) {
