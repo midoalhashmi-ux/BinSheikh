@@ -2,9 +2,9 @@
 
 > هذا الملف مرجع تقني شامل لهذا المستودع، بحيث يقدر أي مبرمج أو نموذج ذكاء
 > اصطناعي آخر يفهم بنية المشروع كاملة بدون الحاجة لقراءة كل الكود من الصفر.
-> **كل تعديل جوهري أو إصلاح مشكلة لاحق يجب أن يُضاف كسطر جديد في قسم "سجل
-> المشاكل والحلول" بالأسفل** — بصيغة: ظهرت المشكلة كذا، والسبب الجذري كذا،
-> وتم حلها بكذا، رقم الكوميت كذا.
+> **كل تعديل جوهري أو إصلاح مشكلة لاحق يُضاف كصف جديد في جدول "سجل المشاكل
+> والحلول" بالأسفل** — سطر واحد مختصر لكل عمود، بدون كود أو شرح مطوّل
+> (التفاصيل الكاملة موجودة برسالة الكوميت نفسها، هذا الجدول فهرس سريع فقط).
 
 ## 1. نظرة عامة على المنظومة الكاملة (3 مستودعات مترابطة)
 
@@ -123,30 +123,12 @@ Firebase Blaze. الكود بـ `functions/index.js` (يتضمن `getStreamUrl` 
 
 ## سجل المشاكل والحلول
 
-1. **فحوصات null ميتة** (`storeUrl` غير قابل لأن يكون `null` أصلاً — نوعه
-   `String` غير nullable) في `player_service.dart` و
-   `open_player_sheet.dart` — أُزيلت. — الكوميت `4f5ea3a`.
-2. **لا معالج أخطاء عام** في `main.dart` — أُضيف
-   `runZonedGuarded`/`FlutterError.onError`/`PlatformDispatcher.onError`
-   (بدون خدمة سجل مخصصة، فقط `debugPrint`). — نفس الكوميت `4f5ea3a`.
-3. **`MediaCategoriesScreen` كان `public`** رغم استخدامه فقط داخل ملفه
-   (`library_private_types_in_public_api` lint) — أُعيدت تسميته لـ
-   `_MediaCategoriesScreen`. — نفس الكوميت.
-4. **استيراد غير مستخدم** بـ `app_update_dialog.dart` — أُزيل. — نفس
-   الكوميت.
-5. **حقل ميت** `_info` بـ `_UpdateGateState` (`main.dart`) — أُزيل. — نفس
-   الكوميت.
-6. **التحقق من المفتاح الإداري بالووركر (`ADMIN_SYNC_SECRET`) كان بمقارنة
-   نصية مباشرة (`!==`)** بثلاث نقاط مختلفة (`handleRefreshMatches`,
-   `handleSiteImport`, `handleRatingsSearch`) — عرضة نظرياً لهجوم توقيت
-   (timing attack). **الحل**: توحيدها عبر `isAdminAuthorized()` التي
-   تستخدم `timingSafeEqual` (المُستخرجة أصلاً من `hls.js` إلى دالة
-   مصدَّرة قابلة لإعادة الاستخدام). — الكوميت `4f5ea3a`.
-7. **لا بُعد زمني لعدّاد المشاهدات** (`viewCount` تراكمي فقط) → لا يمكن
-   للوحة التحكم عرض "الأكثر مشاهدة اليوم/آخر أسبوع". **الحل**: بنية
-   `dailyViews` كاملة (قواعد Firestore + كتابة من `content_service.dart`،
-   راجع القسم 6 أعلاه). — الكوميتات: `0354bde` (الكود) + نشر قواعد يدوي
-   بواسطة المستخدم عبر `firebase deploy --only firestore:rules
-   --project sports-stream-app-36a7a` (تم التأكد: "Deploy complete!").
-   ⚠️ الكود بتطبيق BinSheikh نفسه **لم يُبنَ/يُنشر بعد** (راجع التحذير
-   بالقسم 6).
+| # | المشكلة | الحل | الكوميت |
+|---|---|---|---|
+| 1 | فحوصات null ميتة (`storeUrl` غير nullable أصلاً) بملفَين | إزالتها | `4f5ea3a` |
+| 2 | لا معالج أخطاء عام بـ`main.dart` | `runZonedGuarded`+`FlutterError.onError`+`PlatformDispatcher.onError` (`debugPrint` فقط) | نفس `4f5ea3a` |
+| 3 | `MediaCategoriesScreen` عام رغم استخدامه محلياً فقط (lint) | إعادة تسمية لـ`_MediaCategoriesScreen` | نفس الكوميت |
+| 4 | استيراد غير مستخدم بـ`app_update_dialog.dart` | إزالته | نفس الكوميت |
+| 5 | حقل ميت `_info` بـ`_UpdateGateState` | إزالته | نفس الكوميت |
+| 6 | تحقق المفتاح الإداري بالووركر بمقارنة نصية مباشرة (عرضة نظرياً لـtiming attack) بـ3 نقاط | توحيد عبر `isAdminAuthorized()`/`timingSafeEqual` | `4f5ea3a` |
+| 7 | `viewCount` تراكمي بلا بُعد زمني → لا فلترة تاريخية بإحصائيات لوحة التحكم | بنية `dailyViews` يومية (قواعد Firestore + كتابة `content_service.dart`) — ⚠️ قواعد Firestore منشورة فعلاً، لكن كود BinSheikh نفسه لم يُبنَ/يُنشر بعد | `0354bde` |
