@@ -28,6 +28,7 @@ class PlayerLauncher {
     BuildContext context,
     String channelId, {
     String? categoryId,
+    String? title,
   }) async {
     final now = DateTime.now();
     if (_lastOpenAt != null && now.difference(_lastOpenAt!) < const Duration(seconds: 1)) {
@@ -48,7 +49,13 @@ class PlayerLauncher {
     }
 
     final scheme = settings.deepLinkScheme.trim().replaceAll('://', '');
-    final playerUri = Uri.parse('$scheme://play?channelId=$channelId');
+    // اسم الحلقة/الفيلم يُعرض بأعلى شاشة المشاهدة بالمشغّل (مثل يوتيوب) —
+    // اختياري تماماً، غيابه لا يعطّل أي شيء بالمشغّل.
+    final titlePart = (title != null && title.trim().isNotEmpty)
+        ? '&title=${Uri.encodeComponent(title.trim())}'
+        : '';
+    final playerUri =
+        Uri.parse('$scheme://play?channelId=$channelId$titlePart');
 
     if (Platform.isAndroid && settings.androidPackage.trim().isNotEmpty) {
       try {
