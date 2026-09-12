@@ -1,8 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/category_model.dart';
 import '../models/channel_model.dart';
+import '../models/home_button_model.dart';
 
 class ContentService {
+  /// أزرار الشاشة الرئيسية (شاشة "المحتوى")، تُدار من لوحة التحكم عبر
+  /// settings/homeButtons. مستند فارغ/غير موجود (قبل أي تخصيص) يعني
+  /// الرجوع للثلاثة أزرار الافتراضية — لا يظهر أي فراغ بالشاشة أبداً.
+  static Stream<List<HomeButtonConfig>> watchHomeButtons() {
+    return FirebaseFirestore.instance
+        .collection('settings')
+        .doc('homeButtons')
+        .snapshots()
+        .map((snap) {
+      final raw = snap.data()?['buttons'];
+      if (raw is! List || raw.isEmpty) return HomeButtonConfig.defaults;
+      final parsed = raw
+          .whereType<Map>()
+          .map((m) => HomeButtonConfig.fromMap(Map<String, dynamic>.from(m)))
+          .where((b) => b.label.isNotEmpty)
+          .toList();
+      return parsed.isEmpty ? HomeButtonConfig.defaults : parsed;
+    });
+  }
+
   static Stream<List<CategoryModel>> watchCategories() {
     return FirebaseFirestore.instance
         .collection('categories')

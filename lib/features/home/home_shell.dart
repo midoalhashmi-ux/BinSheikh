@@ -17,7 +17,9 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _tabIndex = 0;
+  // الشاشة الرئيسية عند فتح التطبيق يجب تكون "أفلام/مسلسلات" (فهرس 1)
+  // بدل "النتائج" (فهرس 0) بناءً على طلب صريح.
+  int _tabIndex = 1;
 
   static const _tabs = [
     _TabInfo(title: 'النتائج', icon: Icons.scoreboard_outlined, activeIcon: Icons.scoreboard),
