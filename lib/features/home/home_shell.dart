@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../channels/channels_home_tab.dart';
 import '../favorites/favorites_screen.dart';
-import '../matches/matches_screen.dart';
 import '../media/media_home_tab.dart';
+import '../search/global_search_screen.dart';
 import '../../widgets/app_drawer.dart';
 
-/// الشاشة الجذر للتطبيق: شريط تنقل سفلي بتبويبين — "النتائج" (مباريات
-/// اليوم/الغد) و"القنوات" (أقسام البث). القائمة الجانبية (مشاركة، تواصل،
-/// الشروط، الخصوصية) والمفضلة تبقى متاحة من الأعلى بغض النظر عن التبويب.
+/// الشاشة الجذر للتطبيق: شريط تنقل سفلي بتبويبين فقط — "أفلام ومسلسلات"
+/// و"نتائج وقنوات" (نتائج مباريات اليوم كصف أعلى تبويب القنوات، بدل
+/// تبويب ثالث مستقل). القائمة الجانبية (مشاركة، تواصل، الشروط، الخصوصية)
+/// والمفضلة والبحث تبقى متاحة من الأعلى بغض النظر عن التبويب.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -20,9 +21,8 @@ class _HomeShellState extends State<HomeShell> {
   int _tabIndex = 0;
 
   static const _tabs = [
-    _TabInfo(title: 'النتائج', icon: Icons.scoreboard_outlined, activeIcon: Icons.scoreboard),
-    _TabInfo(title: 'أفلام/مسلسلات', icon: Icons.video_library_outlined, activeIcon: Icons.video_library),
-    _TabInfo(title: 'القنوات', icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv),
+    _TabInfo(title: 'أفلام ومسلسلات', icon: Icons.video_library_outlined, activeIcon: Icons.video_library),
+    _TabInfo(title: 'نتائج وقنوات', icon: Icons.live_tv_outlined, activeIcon: Icons.live_tv),
   ];
 
   @override
@@ -39,15 +39,20 @@ class _HomeShellState extends State<HomeShell> {
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        // زر القائمة الجانبية في leading (يمين الشاشة بالعربية)، وزر
-        // المفضلة في actions (يسار الشاشة) — القائمة تفتح drawer من نفس
-        // جهة زرّها بدل الجهة المقابلة.
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'القائمة',
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
+        // زر القائمة الجانبية انتقل من leading (يمين الشاشة بالعربية) إلى
+        // actions (يسار الشاشة)، والقائمة نفسها تفتح من نفس الجهة
+        // (endDrawer بدل drawer — اتجاه الشاشة RTL فتُفتح "end" من
+        // اليسار) — القائمة تفتح دائماً من نفس جهة زرّها بدل الجهة
+        // المقابلة.
+        automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'بحث',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const GlobalSearchScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.favorite),
             tooltip: 'المفضلة',
@@ -55,16 +60,19 @@ class _HomeShellState extends State<HomeShell> {
               MaterialPageRoute(builder: (_) => const FavoritesScreen()),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'القائمة',
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          ),
         ],
       ),
-      // drawer يفتح من نفس جهة زر القائمة (leading، يمين الشاشة بالعربية).
-      drawer: const AppDrawer(),
-      // IndexedStack يحافظ على حالة كل تبويب (مثلاً موضع اليوم المختار في
-      // شاشة النتائج) عند التنقل بينهما بدل إعادة بنائه من الصفر.
+      endDrawer: const AppDrawer(),
+      // IndexedStack يحافظ على حالة كل تبويب عند التنقل بينهما بدل إعادة
+      // بنائه من الصفر.
       body: IndexedStack(
         index: _tabIndex,
         children: const [
-          MatchesScreen(),
           MediaHomeTab(),
           ChannelsHomeTab(),
         ],

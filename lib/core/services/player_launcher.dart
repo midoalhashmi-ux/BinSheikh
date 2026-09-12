@@ -6,8 +6,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/channel_model.dart';
 import '../models/player_settings.dart';
 import 'content_service.dart';
+import 'watch_history_service.dart';
 
 /// تطبيق المحتوى لا يملك رابط البث. يرسل معرف القناة فقط إلى المشغل الخارجي.
 ///
@@ -26,15 +28,16 @@ class PlayerLauncher {
 
   static Future<void> openChannel(
     BuildContext context,
-    String channelId, {
-    String? categoryId,
-  }) async {
+    ChannelModel channel,
+  ) async {
     final now = DateTime.now();
     if (_lastOpenAt != null && now.difference(_lastOpenAt!) < const Duration(seconds: 1)) {
       return;
     }
     _lastOpenAt = now;
-    unawaited(ContentService.recordView(channelId: channelId, categoryId: categoryId));
+    final channelId = channel.id;
+    unawaited(ContentService.recordView(channelId: channelId, categoryId: channel.categoryId));
+    unawaited(WatchHistoryService.record(channel));
 
     PlayerSettings settings;
     try {

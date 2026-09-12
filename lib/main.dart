@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/services/favorites_service.dart';
 import 'core/services/app_settings_service.dart';
 import 'core/services/app_update_service.dart';
+import 'core/services/watch_history_service.dart';
 import 'features/home/home_shell.dart';
 import 'features/settings/app_update_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -45,6 +46,7 @@ class _BootAppState extends State<_BootApp> {
     try {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
       await FavoritesService.init();
+      await WatchHistoryService.init();
       if (mounted) setState(() => _ready = true);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
