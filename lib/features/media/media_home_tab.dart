@@ -43,7 +43,6 @@ class MediaHomeTab extends StatelessWidget {
             for (final type in _types) ...[
               _MediaCard(
                 type: type,
-                categoryCount: categories.where((c) => c.contentType == type.key).length,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -179,9 +178,8 @@ class _MediaCategoriesScreenState extends State<MediaCategoriesScreen> {
 
 class _MediaCard extends StatelessWidget {
   final _MediaType type;
-  final int categoryCount;
   final VoidCallback onTap;
-  const _MediaCard({required this.type, required this.categoryCount, required this.onTap});
+  const _MediaCard({required this.type, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -207,8 +205,7 @@ class _MediaCard extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(type.title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(categoryCount == 0 ? 'لا توجد أقسام بعد' : '$categoryCount أقسام',
-                    style: theme.textTheme.bodySmall),
+                  Text('تصفح الأقسام المتاحة', style: theme.textTheme.bodySmall),
                 ]),
               ),
               const Icon(Icons.chevron_left),
