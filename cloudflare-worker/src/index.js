@@ -854,9 +854,20 @@ function siteSignificantTokens(text) {
 // present on nearly every page — gets misread as this show's own seasons,
 // mixing in unrelated shows. If we have no tokens to compare against, stay
 // permissive rather than silently discarding everything.
-function siteBelongsToShow(candidateText, candidateUrl, showTokens) {
+//
+// URL only — NOT the candidate's displayed link text. Confirmed on a real
+// site (RistoAnime): a "latest episodes across the site" widget rendered a
+// card whose caption text was a stale copy of the CURRENT page's own title
+// (a caption/lazy-load bug in the site's own theme) while its href pointed
+// to a completely unrelated show's episode. Trusting that text let the
+// token check pass and pulled an unrelated show's episode into this show's
+// list. The URL itself doesn't lie about which episode it links to, so
+// matching against it alone closes that hole without losing any real
+// episode (their own URLs already carry the same identifying words as
+// their title, confirmed against several real catalog pages).
+function siteBelongsToShow(candidateUrl, showTokens) {
   if (!showTokens.length) return true;
-  const tokens = siteSignificantTokens(`${candidateText} ${decodeURIComponent(candidateUrl)}`);
+  const tokens = siteSignificantTokens(decodeURIComponent(candidateUrl));
   return tokens.some(t => showTokens.includes(t));
 }
 
@@ -1009,7 +1020,7 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
     // the same <a>'s stripped text, which previously caused unrelated
     // shows/episodes to be misclassified as this show's own seasons.
     const linkTitle = siteLinkTitle(link.attrs, link.html, link.text);
-    if (!siteBelongsToShow(linkTitle, link.url, showTokens)) { leftover.push(link); continue; }
+    if (!siteBelongsToShow(link.url, showTokens)) { leftover.push(link); continue; }
     // Episode first: a URL slug like ".../season-4-episode-8/" matches both
     // patterns, but it links straight to a playable episode, not a season
     // index page, so the episode reading is the useful one when both match.
