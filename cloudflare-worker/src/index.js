@@ -941,9 +941,19 @@ function siteDetectNumberedSeries(links, pageUrl) {
 }
 
 async function siteFetchHtml(url) {
+  // User-Agent يعلن نفسه صراحة كـ"bot/importer" كان يتسبب بحجب فعلي (403)
+  // من مواقع البث نفسها (تحقّقتُ مباشرة: نفس الرابط يرجّع 403 بأداة جلب
+  // خارجية بلا هيدرز متصفّح حقيقي) — يفسد جودة استيراد المسلسلات لأي موقع
+  // يطبّق حماية بوت أساسية على صفحاته، فيستورد التطبيق حلقات لا يقدر لاحقاً
+  // حتى يكتشف رابط "المشاهدة" الحقيقي لها (ensureWatchSuffix يعتمد على نفس
+  // هذي الدالة). User-Agent متصفّح حقيقي (نفس اللي يستخدمه المشغّل الفعلي
+  // بـwatch_screen_discovery.dart كاحتياطي) بدله — لا يضمن تجاوز كل حماية
+  // بوت متقدمة (Cloudflare JS challenge مثلاً لا يزال يحتاج متصفحاً حقيقياً
+  // فعلياً)، لكنه يزيل السبب الأوضح والأسهل إصلاحاً.
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; AHMED-dashboard site importer)',
+      'User-Agent':
+          'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml',
     },
     redirect: 'follow',
