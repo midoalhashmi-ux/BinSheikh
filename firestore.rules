@@ -13,6 +13,18 @@ service cloud.firestore {
         request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1
       );
       allow create, delete: if request.auth != null;
+
+      // عدّاد المشاهدات اليومي (لوحة التحكم: تبويبات اليوم/7 أيام/30 يوم/
+      // مدى مخصص بصفحة الإحصائيات — راجع app.js sumDailyViews). نفس أسلوب
+      // viewCount أعلاه لكن لمستند قد لا يكون موجوداً بعد (أول مشاهدة
+      // باليوم تُنشئه) — resource يكون null حينها فنعامله كـ0 سابق.
+      match /dailyViews/{dateId} {
+        allow read: if request.auth != null;
+        allow write: if request.resource.data.keys().hasOnly(['count']) &&
+          request.resource.data.count ==
+            (resource != null ? resource.data.get('count', 0) : 0) + 1;
+        allow delete: if false;
+      }
     }
 
     match /channels/{channelId} {
@@ -22,6 +34,14 @@ service cloud.firestore {
         request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1
       );
       allow create, delete: if request.auth != null;
+
+      match /dailyViews/{dateId} {
+        allow read: if request.auth != null;
+        allow write: if request.resource.data.keys().hasOnly(['count']) &&
+          request.resource.data.count ==
+            (resource != null ? resource.data.get('count', 0) : 0) + 1;
+        allow delete: if false;
+      }
     }
 
     match /settings/{settingId} {

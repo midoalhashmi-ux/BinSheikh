@@ -73,15 +73,31 @@ class ContentService {
   /// تُقرأ هذه العدّادات من لوحة التحكم لعرض إحصائيات "الأكثر مشاهدة".
   /// غير حرجة أبداً: أي فشل (بدون إنترنت مثلاً) يُتجاهل بصمت ولا يجب أن
   /// يعطّل فتح القناة نفسها.
+  ///
+  /// يزيد أيضاً عدّاد يومي (`dailyViews/{YYYY-MM-DD}.count`) تحت كل من
+  /// القناة والقسم — لوحة التحكم (app.js: sumDailyViews) تعتمد عليه فعلياً
+  /// لأي مدى زمني غير "كل الوقت" (اليوم/7 أيام/30 يوم/مخصص)، وكانت هذه
+  /// المجموعة الفرعية لا تُكتب إطلاقاً فتظهر هذه التبويبات فارغة دائماً
+  /// بغض النظر عن عدد المشاهدات الفعلي.
   static Future<void> recordView({
     required String channelId,
     String? categoryId,
   }) async {
     try {
+      final dateId = _utcDateId(DateTime.now().toUtc());
       final batch = FirebaseFirestore.instance.batch();
       batch.set(
         FirebaseFirestore.instance.collection('channels').doc(channelId),
         {'viewCount': FieldValue.increment(1)},
+        SetOptions(merge: true),
+      );
+      batch.set(
+        FirebaseFirestore.instance
+            .collection('channels')
+            .doc(channelId)
+            .collection('dailyViews')
+            .doc(dateId),
+        {'count': FieldValue.increment(1)},
         SetOptions(merge: true),
       );
       if (categoryId != null && categoryId.isNotEmpty) {
@@ -90,10 +106,26 @@ class ContentService {
           {'viewCount': FieldValue.increment(1)},
           SetOptions(merge: true),
         );
+        batch.set(
+          FirebaseFirestore.instance
+              .collection('categories')
+              .doc(categoryId)
+              .collection('dailyViews')
+              .doc(dateId),
+          {'count': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
       }
       await batch.commit();
     } catch (_) {
       // إحصائيات غير حرجة — لا نعطّل تشغيل القناة لأجلها.
     }
+  }
+
+  static String _utcDateId(DateTime utc) {
+    final y = utc.year.toString().padLeft(4, '0');
+    final m = utc.month.toString().padLeft(2, '0');
+    final d = utc.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 }
