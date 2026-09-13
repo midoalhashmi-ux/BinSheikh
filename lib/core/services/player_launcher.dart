@@ -28,6 +28,7 @@ class PlayerLauncher {
     BuildContext context,
     String channelId, {
     String? categoryId,
+    String? title,
   }) async {
     final now = DateTime.now();
     if (_lastOpenAt != null && now.difference(_lastOpenAt!) < const Duration(seconds: 1)) {
@@ -48,7 +49,18 @@ class PlayerLauncher {
     }
 
     final scheme = settings.deepLinkScheme.trim().replaceAll('://', '');
-    final playerUri = Uri.parse('$scheme://play?channelId=$channelId');
+    // المشغّل (sports_player/main.dart) يقرأ title= من الرابط العميق فعلياً
+    // ويعرضه أعلى شاشة المشاهدة — لكن هذا الاستدعاء لم يكن يرسله إطلاقاً
+    // (اسم القناة/الفيلم/الحلقة متوفر دائماً بـChannelCard.channel.title
+    // ولم يكن يُمرَّر أصلاً)، فتبقى الشاشة بلا عنوان ظاهر دائماً.
+    final playerUri = Uri(
+      scheme: scheme,
+      host: 'play',
+      queryParameters: {
+        'channelId': channelId,
+        if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      },
+    );
 
     if (Platform.isAndroid && settings.androidPackage.trim().isNotEmpty) {
       try {
