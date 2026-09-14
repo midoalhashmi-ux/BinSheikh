@@ -956,11 +956,32 @@ async function siteFetchHtml(url) {
 
 function siteStripSlash(url) { return String(url || '').replace(/\/$/, ''); }
 
+// A numbered-pager link (page "4", a bare "→"/"«" arrow, "Next"/"التالي") can
+// live under the exact same first path segment as real catalog items (e.g.
+// "/anime/4/" next to "/anime/some-show/"), so SITE_JUNK_PATH's "page/\d+"
+// check alone doesn't catch every site's pagination URL scheme. Without this,
+// the largest-group heuristic below happily counts it as just another show —
+// it ends up imported as a broken card titled "4" with whatever generic
+// image (often the site's own logo) happened to sit inside that anchor.
+// A real show title is never just a bare number or a lone arrow glyph, so
+// this is a safe, site-agnostic filter.
+function siteLooksLikePagerLabel(text) {
+  const t = String(text || '').trim();
+  if (!t) return true;
+  if (/^\d{1,4}$/.test(t)) return true;
+  if (/^[«»‹›→←<>…]+$/.test(t)) return true;
+  if (/^(next|previous|prev|older posts|newer posts)$/i.test(t)) return true;
+  if (/^(التالي|السابق|الاخيرة|الأخيرة|الأولى|الاولى|التالية|السابقة)$/i.test(t)) return true;
+  return false;
+}
+
 function siteParseCatalog(html, base) {
   const baseHostname = new URL(base).hostname;
   const basePath = siteStripSlash(base);
   const links = siteLinks(html, base).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
-  const candidates = links.filter(l => l.text && !SITE_JUNK_PATH.test(new URL(l.url).pathname));
+  const candidates = links
+    .filter(l => l.text && !SITE_JUNK_PATH.test(new URL(l.url).pathname))
+    .filter(l => !siteLooksLikePagerLabel(siteLinkTitle(l.attrs, l.html, l.text)));
 
   // Group by first path segment (e.g. "/anime/one-piece" -> "anime") and use
   // the largest group — this is what makes catalog detection work on any
