@@ -27,6 +27,17 @@ class ContentService {
     );
   }
 
+  /// كل القنوات/الحلقات بكل الأقسام معاً — تُستخدم للبحث الموحّد وصفوف
+  /// الرئيسية الديناميكية (الأكثر مشاهدة/الأحدث) بدل تحميلها قسم بقسم.
+  static Stream<List<ChannelModel>> watchAllChannels() {
+    return FirebaseFirestore.instance
+        .collection('channels')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => ChannelModel.fromMap(d.id, d.data()))
+            .toList());
+  }
+
   static Stream<List<ChannelModel>> watchChannelsForCategory(
       String categoryId) {
     return FirebaseFirestore.instance

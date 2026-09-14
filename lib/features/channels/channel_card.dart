@@ -26,8 +26,7 @@ class ChannelCard extends StatelessWidget {
             ? () => ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('هذه القناة متوقفة مؤقتاً.')),
                 )
-            : () => PlayerLauncher.openChannel(context, channel.id,
-                categoryId: channel.categoryId),
+            : () => PlayerLauncher.openChannel(context, channel),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
