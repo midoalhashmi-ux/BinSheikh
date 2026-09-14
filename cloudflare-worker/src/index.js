@@ -997,7 +997,18 @@ function siteParseSeries(html, pageUrl, fallbackTitle = '', fallbackThumbnail = 
   const basePath = siteStripSlash(pageUrl);
   const links = siteLinks(html, pageUrl).filter(l => siteSameOrigin(l.url, baseHostname) && siteStripSlash(l.url) !== basePath);
   const ownTitle = siteExtractTitle(html, fallbackTitle);
-  const showTokens = siteSignificantTokens(`${fallbackTitle} ${ownTitle} ${decodeURIComponent(new URL(pageUrl).pathname)}`);
+  // fallbackTitle (the clean title already scraped from the catalog card via
+  // siteLinkTitle) is a far more reliable identity signal than ownTitle: a
+  // page's own <title>/og:title/h1 can carry the site's brand name (e.g. a
+  // "Site Name - Show" <title> layout, or siteExtractTitle's | / – splitting
+  // guessing the wrong half) or boilerplate that also appears on every other
+  // page of the same site. When that happens, ownTitle contributes a token
+  // shared by literally every candidate link on the site, defeating
+  // siteBelongsToShow's whole purpose and mixing unrelated shows' episodes
+  // into this one. Only fall back to ownTitle when we have no catalog title
+  // to trust at all (e.g. a season sub-page fetched without one).
+  const identityTitle = fallbackTitle || ownTitle;
+  const showTokens = siteSignificantTokens(`${identityTitle} ${decodeURIComponent(new URL(pageUrl).pathname)}`);
   const episodes = [];
   const seasons = [];
   const leftover = [];
